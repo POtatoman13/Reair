@@ -8,6 +8,9 @@ import {
 
 const App = () => {
   // --- CONFIGURAZIONE GEMINI API ---
+  // 1. VAI SU https://aistudio.google.com/app/apikey
+  // 2. CREA UNA CHIAVE (API KEY)
+  // 3. INCOLLALA QUI SOTTO TRA LE VIRGOLETTE
   const apiKey = "AIzaSyBhaSB7be2AZmzk-EjjzRaH4VDUZd5V3So"; 
   const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
 
@@ -93,28 +96,58 @@ const App = () => {
     };
   }, [kwp, selectedProductId, bonusFirma, vincolo96Mesi]);
 
-  // --- FUNZIONI AI ---
+  // --- FUNZIONI AI CON GESTIONE ERRORI AVANZATA ---
   const generateAI = async (type) => {
+    if (!apiKey || apiKey.trim() === "") {
+      setAiContent("Manca la chiave API alla riga 12. Generala su Google AI Studio e incollala nel codice.");
+      return;
+    }
+
     setIsAiLoading(true);
-    const prompt = type === 'pitch' 
-      ? `Progetto: ${kwp}kWp con ${calculations.product.name}. Prezzo finale: €${calculations.prezzoScontatoCliente.toLocaleString()}. Detrazione 50%. Sconto firma e vincolo inclusi.`
-      : `Dati: ${calculations.kgNoxAbbattuti}kg NOx abbattuti, ${calculations.alberiEquivalenti} alberi equivalenti.`;
+    setAiContent("");
     
-    const sys = "Sei un direttore commerciale ReAir. Genera una risposta persuasiva e breve.";
+    const userQuery = type === 'pitch' 
+      ? `Progetto: ${kwp}kWp con ${calculations.product.name}. Prezzo finale: €${calculations.prezzoScontatoCliente.toLocaleString()}. Detrazione 50%. Focus: ${calculations.product.focus}. Sconto firma e vincolo inclusi. Crea un pitch commerciale breve.`
+      : `Dati ambientali: ${calculations.kgNoxAbbattuti}kg NOx abbattuti, ${calculations.alberiEquivalenti} alberi equivalenti grazie a ReAir. Genera un breve report ESG.`;
+    
+    const systemPrompt = "Sei un direttore commerciale ReAir. Rispondi sempre in italiano. Sii persuasivo, tecnico e brevissimo (max 3 righe).";
+
+    const fetchWithRetry = async (retries = 3, delay = 1000) => {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] }
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || `Errore API: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (!text) throw new Error("Risposta vuota");
+        return text;
+      } catch (error) {
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return fetchWithRetry(retries - 1, delay * 2);
+        }
+        throw error;
+      }
+    };
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          systemInstruction: { parts: [{ text: sys }] }
-        })
-      });
-      const data = await response.json();
-      setAiContent(data.candidates?.[0]?.content?.parts?.[0]?.text || "Errore generazione.");
+      const result = await fetchWithRetry();
+      setAiContent(result);
     } catch (e) {
-      setAiContent("Connessione API fallita.");
+      console.error(e);
+      setAiContent(`Errore: ${e.message}. Verifica la tua API Key su GitHub.`);
     } finally {
       setIsAiLoading(false);
     }
@@ -124,23 +157,23 @@ const App = () => {
     <div className={`min-h-screen transition-colors duration-500 font-sans ${isClientMode ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`}>
       
       {/* NAVBAR */}
-      <nav className={`sticky top-0 z-30 border-b px-4 md:px-6 py-4 flex justify-between items-center ${isClientMode ? 'bg-slate-900/90 border-slate-800 backdrop-blur-md' : 'bg-white border-slate-200 shadow-sm'}`}>
+      <nav className={`sticky top-0 z-30 border-b px-4 md:px-6 py-4 flex justify-between items-center ${isClientMode ? 'bg-slate-900/90 border-slate-800 backdrop-blur-md text-white' : 'bg-white border-slate-200 shadow-sm text-slate-900'}`}>
         <div className="flex items-center gap-3">
-          <div className="bg-blue-600 p-2 rounded-xl shadow-lg"><Sun className="text-white w-5 h-5" /></div>
+          <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-500/20"><Sun className="text-white w-5 h-5" /></div>
           <div>
             <h1 className="text-lg font-black tracking-tighter uppercase leading-none">ReAir <span className={isClientMode ? 'text-blue-400' : 'text-blue-600'}>Field</span></h1>
-            <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest">{isClientMode ? 'Presentazione' : 'Partner Dashboard'}</p>
+            <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest leading-none mt-1">{isClientMode ? 'Presentazione' : 'Partner Dashboard'}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 md:gap-6">
           <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${isClientMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
             <Compass className="w-4 h-4" />
             <span className="text-[10px] font-black uppercase tracking-widest">Strategy</span>
           </div>
           <button 
             onClick={() => setIsClientMode(!isClientMode)}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-black text-[10px] md:text-xs transition-all active:scale-95 ${isClientMode ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-200 text-slate-600'}`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-black text-[10px] md:text-xs transition-all active:scale-95 ${isClientMode ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-200 text-slate-600'}`}
           >
             {isClientMode ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
             {isClientMode ? 'VISTA CLIENTE' : 'VISTA PARTNER'}
@@ -148,7 +181,7 @@ const App = () => {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 text-slate-900">
+      <main className="max-w-7xl mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
         
         {/* INPUTS */}
         <div className={`lg:col-span-4 space-y-6 ${isClientMode ? 'order-2 lg:order-1' : ''}`}>
@@ -164,7 +197,7 @@ const App = () => {
                   type="number" 
                   value={kwp} 
                   onChange={(e) => setKwp(Number(e.target.value))}
-                  className={`w-full border-2 rounded-2xl py-4 px-5 font-black text-2xl outline-none transition-all ${isClientMode ? 'bg-slate-900 border-slate-700 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-100 focus:border-blue-600'}`}
+                  className={`w-full border-2 rounded-2xl py-4 px-5 font-black text-2xl outline-none transition-all ${isClientMode ? 'bg-slate-900 border-slate-700 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-100 focus:border-blue-600 text-slate-900'}`}
                 />
               </div>
 
@@ -211,7 +244,6 @@ const App = () => {
             </div>
           </section>
 
-          {/* VISTA PARTNER (RISERVATA) */}
           {!isClientMode && (
             <section className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl overflow-hidden relative border border-white/5">
               <div className="absolute top-0 right-0 p-4 opacity-5"><Briefcase className="w-24 h-24" /></div>
@@ -225,16 +257,16 @@ const App = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-white">
-                    <span className="text-[8px] font-black opacity-40 block uppercase mb-1">Quota Socio A (50%)</span>
+                    <span className="text-[8px] font-black opacity-40 block uppercase mb-1">Quota Socio A</span>
                     <span className="text-lg font-black tracking-tight text-white">€ {calculations.utileSocio.toLocaleString()}</span>
                   </div>
                   <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-white">
-                    <span className="text-[8px] font-black opacity-40 block uppercase mb-1">Quota Socio B (50%)</span>
+                    <span className="text-[8px] font-black opacity-40 block uppercase mb-1">Quota Socio B</span>
                     <span className="text-lg font-black tracking-tight text-white">€ {calculations.utileSocio.toLocaleString()}</span>
                   </div>
                 </div>
-                <div className="pt-4 border-t border-white/10 flex justify-between text-blue-400 font-bold text-xs">
-                  <span>PROVVIGIONE AGENTE (7%)</span>
+                <div className="pt-4 border-t border-white/10 flex justify-between text-blue-400 font-bold text-xs uppercase tracking-tighter">
+                  <span>Agente (7%)</span>
                   <span>€ {calculations.provvigioneAgenteValore.toLocaleString()}</span>
                 </div>
               </div>
@@ -250,14 +282,14 @@ const App = () => {
             <div className={`px-6 py-4 flex justify-between items-center border-b ${isClientMode ? 'border-slate-700' : 'border-blue-50'}`}>
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-blue-500 animate-pulse" />
-                <span className={`text-[10px] font-black uppercase tracking-tight ${isClientMode ? 'text-blue-400' : 'text-blue-900'}`}>Assistente ReAir</span>
+                <span className={`text-[10px] font-black uppercase tracking-tight ${isClientMode ? 'text-blue-400' : 'text-blue-900'}`}>Assistente Strategico ReAir</span>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => generateAI('pitch')} disabled={isAiLoading} className="bg-blue-600 text-white text-[9px] font-black px-4 py-2 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 uppercase">
-                   {isAiLoading ? '...' : 'Sales Pitch'}
+                <button onClick={() => generateAI('pitch')} disabled={isAiLoading} className="bg-blue-600 text-white text-[9px] font-black px-4 py-2 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 uppercase flex items-center gap-2">
+                   {isAiLoading && <Loader2 className="w-3 h-3 animate-spin" />} Sales Pitch
                 </button>
-                <button onClick={() => generateAI('esg')} disabled={isAiLoading} className="bg-indigo-600 text-white text-[9px] font-black px-4 py-2 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 uppercase">
-                   ESG Report
+                <button onClick={() => generateAI('esg')} disabled={isAiLoading} className="bg-indigo-600 text-white text-[9px] font-black px-4 py-2 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 uppercase flex items-center gap-2">
+                   {isAiLoading && <Loader2 className="w-3 h-3 animate-spin" />} ESG Report
                 </button>
               </div>
             </div>
@@ -280,19 +312,19 @@ const App = () => {
                 <div className="bg-white/20 p-3 rounded-2xl"><ShieldCheck className="w-8 h-8" /></div>
                 <div>
                   <h2 className="text-2xl font-black tracking-tighter leading-tight text-white">Proposta Economica</h2>
-                  <p className="text-[10px] font-black opacity-60 uppercase tracking-widest text-white/80 tracking-widest">Efficientamento Certificato</p>
+                  <p className="text-[10px] font-black opacity-60 uppercase tracking-widest text-white/80">Efficientamento Certificato</p>
                 </div>
               </div>
               <div className="bg-white/10 px-6 py-2 rounded-2xl border border-white/20 text-center">
-                <span className="text-[10px] font-black opacity-60 uppercase block text-white/80 tracking-widest">RX-{kwp}</span>
+                <span className="text-[10px] font-black opacity-60 uppercase block text-white/80">RE-{kwp}</span>
               </div>
             </div>
 
-            <div className="p-8 md:p-10 grid grid-cols-1 md:grid-cols-12 gap-12 text-slate-900">
+            <div className="p-8 md:p-10 grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12">
               <div className="md:col-span-5 space-y-6">
                 <div className="relative">
-                  <div className={`p-6 rounded-3xl border-2 text-center transition-all ${isClientMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-100'}`}>
-                    <span className="text-[10px] font-black opacity-40 uppercase block mb-1">Prezzo Chiavi in Mano</span>
+                  <div className={`p-6 rounded-3xl border-2 text-center transition-all ${isClientMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-slate-900'}`}>
+                    <span className="text-[10px] font-black opacity-40 uppercase block mb-1 tracking-widest">Valore Listino</span>
                     <span className="text-lg font-black opacity-20 line-through">€ {calculations.prezzoSenzaSconti.toLocaleString()}</span>
                     <span className={`text-3xl font-black block mt-1 ${isClientMode ? 'text-white' : 'text-slate-900'}`}>€ {calculations.prezzoScontatoCliente.toLocaleString()}</span>
                   </div>
@@ -312,11 +344,11 @@ const App = () => {
                 </div>
               </div>
 
-              {/* CHART ROI */}
+              {/* ROI AREA */}
               <div className="md:col-span-7 space-y-8">
-                <div className={`p-6 rounded-3xl border ${isClientMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'}`}>
+                <div className={`p-6 rounded-3xl border ${isClientMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
                   <h3 className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-8 flex justify-between items-center">
-                    <span className="flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Andamento ROI</span>
+                    <span className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-500" /> Analisi Rientro</span>
                     <span className="bg-blue-500 text-white px-2 py-0.5 rounded text-[8px] font-black">BE: 16 MESI</span>
                   </h3>
                   
@@ -336,12 +368,12 @@ const App = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className={`p-5 rounded-3xl border transition-all ${isClientMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200'}`}>
+                  <div className={`p-5 rounded-3xl border transition-all ${isClientMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 shadow-sm text-slate-900'}`}>
                     <Leaf className="w-5 h-5 text-green-500 mb-3" />
                     <span className="text-2xl font-black block tracking-tighter text-green-500 leading-none">{calculations.alberiEquivalenti}</span>
                     <span className="text-[9px] font-black opacity-40 uppercase tracking-widest mt-1 block">Alberi Equiv.</span>
                   </div>
-                  <div className={`p-5 rounded-3xl border transition-all ${isClientMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200'}`}>
+                  <div className={`p-5 rounded-3xl border transition-all ${isClientMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 shadow-sm text-slate-900'}`}>
                     <TrendingUp className="w-5 h-5 text-blue-500 mb-3" />
                     <span className="text-2xl font-black block tracking-tighter text-blue-500 leading-none">+15%</span>
                     <span className="text-[9px] font-black opacity-40 uppercase tracking-widest mt-1 block">Resa Energia</span>
@@ -354,7 +386,7 @@ const App = () => {
       </main>
 
       <footer className={`text-center py-10 text-[9px] font-black tracking-[0.3em] uppercase ${isClientMode ? 'text-slate-700' : 'text-slate-400'}`}>
-        REAIR S.R.L. | INNOVATION 2026
+        REAIR S.R.L. | NANOTECH 2026
       </footer>
     </div>
   );
