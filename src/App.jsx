@@ -10,9 +10,6 @@ const App = () => {
   // --- CONFIGURAZIONE GEMINI API ---
   // Incolla la tua chiave tra le virgolette (es: "AIzaSy...")
   const apiKey = "AIzaSyBhaSB7be2AZmzk-EjjzRaH4VDUZd5V3So"; 
-  
-  // Modello standard ultra-compatibile
-  const MODEL_NAME = "gemini-1.5-flash";
 
   // --- PARAMETRI BUSINESS REAIR 2026 ---
   const TAX_DEDUCTION = 0.50;           
@@ -72,6 +69,7 @@ const App = () => {
     };
   }, [kwp, selectedProductId, bonusFirma, vincolo96Mesi]);
 
+  // --- FUNZIONE AI SMART AUTO-FIX (VERSION 7) ---
   const generateAI = async (type) => {
     if (!apiKey || apiKey.length < 5) {
       setAiContent("ERRORE: Incolla la chiave API alla riga 12 su GitHub!");
@@ -81,45 +79,51 @@ const App = () => {
     setIsAiLoading(true);
     setAiContent("");
     
-    const prompt = type === 'pitch' 
-      ? `Sei un venditore ReAir. Scrivi 2 righe persuasive in italiano per vendere un trattamento fotovoltaico da ${kwp}kWp. Prezzo finale netto: €${calculations.costoNettoCliente.toLocaleString()}.`
-      : `Scrivi 2 righe tecniche in italiano sull'impatto ESG: abbattimento di ${calculations.kgNox}kg di NOx e ${calculations.alberi} alberi equivalenti grazie a ReAir.`;
+    const promptText = type === 'pitch' 
+      ? `Sei un venditore ReAir. Scrivi 2 righe persuasive in italiano per un impianto da ${kwp}kWp. Prezzo finale: €${calculations.costoNettoCliente.toLocaleString()}.`
+      : `Scrivi 2 righe tecniche in italiano: abbattimento di ${calculations.kgNox}kg di NOx e ${calculations.alberi} alberi equivalenti grazie a ReAir.`;
 
-    try {
-      // ENDPOINT v1 STABILE (Niente Beta)
-      const cleanKey = apiKey.trim();
-      const url = `https://generativelanguage.googleapis.com/v1/models/${MODEL_NAME}:generateContent?key=${cleanKey}`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
-      });
+    // Tentativi con diverse configurazioni per saltare gli errori di versione
+    const configs = [
+      { api: 'v1beta', model: 'gemini-1.5-flash' },
+      { api: 'v1', model: 'gemini-1.5-flash' },
+      { api: 'v1beta', model: 'gemini-pro' }
+    ];
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error?.message || "Errore sconosciuto");
+    let lastError = "";
+
+    for (const conf of configs) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/${conf.api}/models/${conf.model}:generateContent?key=${apiKey.trim()}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+        });
+
+        const data = await response.json();
+        if (response.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+          setAiContent(data.candidates[0].content.parts[0].text);
+          setIsAiLoading(false);
+          return; // Usciamo se funziona!
+        } else {
+          lastError = data.error?.message || "Errore sconosciuto";
+        }
+      } catch (e) {
+        lastError = e.message;
       }
-
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      setAiContent(text || "Risposta vuota. Riprova.");
-
-    } catch (e) {
-      setAiContent(`ERRORE: ${e.message}. Se vedi ancora 'v1beta' in questo messaggio, il sito non è aggiornato!`);
-    } finally {
-      setIsAiLoading(false);
     }
+
+    setAiContent(`ERRORE: Nessun modello ha risposto. Messaggio: ${lastError}. Se vedi ancora il banner giallo, prova a svuotare la cache del browser.`);
+    setIsAiLoading(false);
   };
 
   return (
     <div className={`min-h-screen font-sans ${isClientMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* BANNER DI DEBUG VERSION 6 */}
-      <div className="bg-yellow-400 text-black text-[10px] font-black text-center py-1 uppercase tracking-tighter">
-        DEBUG MODE ACTIVE: VERSION 6.0 (STABLE V1 ENDPOINT) - SE NON VEDI QUESTO BANNER, IL SITO NON È AGGIORNATO!
+      {/* BANNER DI VERIFICA V7 */}
+      <div className="bg-blue-600 text-white text-[10px] font-black text-center py-1 uppercase tracking-widest">
+        SYSTEM ACTIVE: VERSION 7.0 (SMART AUTO-RETRY) - SE NON VEDI IL BLU, IL SITO NON È AGGIORNATO!
       </div>
 
       <nav className={`sticky top-0 z-30 border-b px-4 py-3 flex justify-between items-center ${isClientMode ? 'bg-slate-950/90 border-slate-800 backdrop-blur-md' : 'bg-white border-slate-200 shadow-sm'}`}>
@@ -127,7 +131,7 @@ const App = () => {
           <Sun className="text-blue-600 w-5 h-5" />
           <h1 className="text-sm font-black uppercase tracking-tighter">ReAir <span className="text-blue-600">Field</span></h1>
         </div>
-        <button onClick={() => setIsClientMode(!isClientMode)} className="bg-blue-600 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase shadow-lg">
+        <button onClick={() => setIsClientMode(!isClientMode)} className="bg-blue-600 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase">
           {isClientMode ? 'VISTA PARTNER' : 'VISTA CLIENTE'}
         </button>
       </nav>
@@ -138,7 +142,7 @@ const App = () => {
         <section className={`p-6 rounded-3xl border ${isClientMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div className="space-y-6">
             <div>
-              <label className="text-[10px] font-black uppercase opacity-40 mb-2 block tracking-widest">Potenza Impianto (kWp)</label>
+              <label className="text-[10px] font-black uppercase opacity-40 mb-2 block">Potenza Impianto (kWp)</label>
               <input type="number" value={kwp} onChange={(e) => setKwp(Number(e.target.value))} className="w-full bg-transparent border-b-2 border-blue-600 py-2 text-3xl font-black outline-none focus:border-blue-400" />
             </div>
 
@@ -169,11 +173,11 @@ const App = () => {
           {aiContent && <div className="p-4 bg-blue-500/5 rounded-2xl border border-blue-500/20"><p className="text-sm italic font-medium leading-relaxed">"{aiContent}"</p></div>}
         </section>
 
-        {/* PROPOSTA */}
+        {/* PROPOSTA ECONOMICA */}
         <div className={`rounded-[40px] overflow-hidden border shadow-2xl ${isClientMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
           <div className="p-8 bg-blue-600 text-white flex justify-between items-center">
             <div><h2 className="text-2xl font-black tracking-tighter uppercase">Offerta Strategica</h2><p className="text-[10px] opacity-60 font-bold uppercase tracking-widest">Nano-Protection System</p></div>
-            <div className="text-right"><span className="block text-[8px] font-black opacity-50 uppercase">ID</span><span className="font-mono font-bold">RE-{kwp}</span></div>
+            <div className="text-right font-mono font-bold opacity-30">RE-{kwp}</div>
           </div>
           
           <div className="p-8 space-y-8">
@@ -185,8 +189,8 @@ const App = () => {
               </div>
 
               <div className="p-8 bg-green-600 rounded-[32px] text-white text-center shadow-xl transform scale-105">
-                <span className="text-[10px] font-black opacity-60 uppercase block mb-1">Costo Netto Reale</span>
-                <span className="text-5xl font-black tracking-tighter">€ {calculations.costoNettoCliente.toLocaleString()}</span>
+                <span className="text-[10px] font-black opacity-60 uppercase block mb-1">Investimento Netto Reale</span>
+                <span className="text-5xl font-black tracking-tighter text-white">€ {calculations.costoNettoCliente.toLocaleString()}</span>
                 <p className="text-[10px] mt-2 font-bold opacity-80 uppercase tracking-widest">Detrazione 50% Inclusa</p>
               </div>
             </div>
@@ -195,12 +199,12 @@ const App = () => {
               <div className="text-center p-5 bg-blue-500/5 rounded-3xl border border-blue-500/10">
                 <Leaf className="w-6 h-6 mx-auto mb-2 text-green-500" />
                 <span className="text-2xl font-black block text-inherit">{calculations.alberi}</span>
-                <span className="text-[9px] opacity-40 uppercase font-black">Alberi Equivalenti</span>
+                <span className="text-[9px] opacity-40 uppercase font-black text-inherit">Alberi Equivalenti</span>
               </div>
               <div className="text-center p-5 bg-blue-500/5 rounded-3xl border border-blue-500/10">
                 <TrendingUp className="w-6 h-6 mx-auto mb-2 text-blue-500" />
                 <span className="text-2xl font-black block text-inherit">+15%</span>
-                <span className="text-[9px] opacity-40 uppercase font-black">Resa Energetica</span>
+                <span className="text-[9px] opacity-40 uppercase font-black text-inherit">Resa Energetica</span>
               </div>
             </div>
           </div>
@@ -210,17 +214,17 @@ const App = () => {
         {!isClientMode && (
           <section className="bg-slate-900 text-white p-8 rounded-[40px] border border-white/5 shadow-2xl">
             <h2 className="text-[10px] font-black uppercase opacity-50 mb-6 flex items-center gap-2"><Briefcase className="w-4 h-4 text-blue-400" /> Profit Analysis</h2>
-            <div className="text-4xl font-black text-green-400 mb-8 tracking-tighter">€ {calculations.utileTotale.toLocaleString()} <span className="text-xs opacity-50 font-bold ml-2">UTILE NETTO (40%)</span></div>
+            <div className="text-4xl font-black text-green-400 mb-8 tracking-tighter">€ {calculations.utileTotale.toLocaleString()} <span className="text-xs opacity-50 font-bold ml-2 uppercase">Utile Netto</span></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/5 p-4 rounded-2xl border border-white/5"><span className="text-[9px] opacity-40 block uppercase mb-1">Quota Socio A</span><span className="text-lg font-black">€ {calculations.utileSocio.toLocaleString()}</span></div>
-              <div className="bg-white/5 p-4 rounded-2xl border border-white/5"><span className="text-[9px] opacity-40 block uppercase mb-1">Quota Socio B</span><span className="text-lg font-black">€ {calculations.utileSocio.toLocaleString()}</span></div>
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-white"><span className="text-[9px] opacity-40 block uppercase mb-1">Socio A</span><span className="text-lg font-black">€ {calculations.utileSocio.toLocaleString()}</span></div>
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-white"><span className="text-[9px] opacity-40 block uppercase mb-1">Socio B</span><span className="text-lg font-black">€ {calculations.utileSocio.toLocaleString()}</span></div>
             </div>
           </section>
         )}
       </main>
 
       <footer className="text-center py-10 text-[9px] font-black tracking-[0.4em] opacity-20 uppercase">
-        ReAir S.R.L. | Version 6.0 Stable | Certificated AI
+        ReAir S.R.L. | Version 7.0 Stable | Smart AI
       </footer>
     </div>
   );
