@@ -12,8 +12,7 @@ const App = () => {
   // 2. CREA UNA CHIAVE (API KEY)
   // 3. INCOLLALA QUI SOTTO TRA LE VIRGOLETTE
   const apiKey = "AIzaSyBhaSB7be2AZmzk-EjjzRaH4VDUZd5V3So"; 
-  const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
-
+  const MODEL_NAME = "gemini-1.5-flash";
   // --- PARAMETRI BUSINESS REAIR 2026 ---
   const MARGINE_SOCI_TARGET = 0.40;     
   const PROVVIGIONE_AGENTE_FISSA = 0.07; 
