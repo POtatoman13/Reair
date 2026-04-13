@@ -8,7 +8,7 @@ import {
 
 const App = () => {
   // --- CONFIGURAZIONE GEMINI API ---
-  const apiKey = ""; 
+  const apiKey = "AIzaSyBhaSB7be2AZmzk-EjjzRaH4VDUZd5V3So"; 
   const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
 
   // --- PARAMETRI BUSINESS REAIR 2026 ---
