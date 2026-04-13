@@ -7,7 +7,7 @@ import {
 const App = () => {
   // --- CONFIGURAZIONE GEMINI API ---
   // Incolla la tua chiave API tra le virgolette qui sotto
-  const apiKey = ""; 
+  const apiKey = "AIzaSyBhaSB7be2AZmzk-EjjzRaH4VDUZd5V3So"; 
   
   // Modello standard più compatibile al mondo
   const MODEL_NAME = "gemini-1.5-flash";
