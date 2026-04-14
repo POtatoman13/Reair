@@ -7,7 +7,7 @@ import {
 
 const App = () => {
   // --- CONFIGURAZIONE GEMINI API ---
-  const apiKey = "gen-lang-client-0438962149"; 
+  const apiKey = "AIzaSyAhI3gdRivymDaxiSM-jdqyuyx-g4_6GF8"; 
 
   // --- PARAMETRI BUSINESS AGGIORNATI ---
   const MQ_PER_KW = 6.5; 
