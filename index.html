@@ -2,23 +2,38 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
+    <!-- Impedisce lo zoom involontario su mobile per un feeling da App nativa -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>ReAir Field App</title>
     
-    <!-- Meta tag per Icona su iPhone (iOS) -->
+    <!-- Configurazione Icona per iPhone -->
     <link rel="apple-touch-icon" href="/logo.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ReAir Field">
 
-    <!-- Meta tag per Icona su Android -->
+    <!-- Configurazione Icona per Android -->
     <link rel="icon" type="image/png" href="/logo.png">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#005A8C">
 
-    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <!-- Tailwind CSS per lo stile -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+      /* Impedisce il rimbalzo della pagina su iOS */
+      body, html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <!-- Punto di ingresso dell'applicazione React -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
