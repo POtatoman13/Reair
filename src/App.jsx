@@ -7,7 +7,7 @@ import {
 
 const App = () => {
   // --- CONFIGURAZIONE GEMINI API ---
-  const apiKey = ""; 
+  const apiKey = "AIzaSyAhI3gdRivymDaxiSM-jdqyuyx-g4_6GF8"; 
   const MODEL_NAME = "gemini-1.5-flash";
 
   // --- PARAMETRI BUSINESS AGGIORNATI ---
