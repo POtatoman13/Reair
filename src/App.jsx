@@ -5,14 +5,35 @@ import {
   Truck, HardHat, Percent, Wallet, BarChart3, CheckCircle2, AlertTriangle, ChevronRight
 } from 'lucide-react';
 
+// --- COMPONENTE LOGO REAIR (Design Vettoriale) ---
+const LogoReAir = ({ isClientMode }) => (
+  <div className="flex items-center gap-3">
+    <svg width="38" height="38" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="50" cy="50" r="45" fill="#8EBCD6" />
+      <path d="M50 25C50 25 30 45 30 60C30 71.0457 38.9543 80 50 80C61.0457 80 70 71.0457 70 60C70 45 50 25 50 25Z" fill="white" />
+      <path d="M50 80V35" stroke="#8EBCD6" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M50 65L65 55" stroke="#8EBCD6" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M50 55L35 45" stroke="#8EBCD6" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+    <div className="flex flex-col leading-none">
+      <span className={`text-2xl font-black tracking-tighter ${isClientMode ? 'text-[#005A8C]' : 'text-white'}`}>
+        RE<span className="font-light italic">air</span>
+      </span>
+      <span className={`text-[8px] font-bold uppercase tracking-[0.2em] ${isClientMode ? 'text-[#8EBCD6]' : 'text-blue-300/60'}`}>
+        air-health technology
+      </span>
+    </div>
+  </div>
+);
+
 const App = () => {
   // --- CONFIGURAZIONE GEMINI API ---
-  const apiKey = "AIzaSyAhI3gdRivymDaxiSM-jdqyuyx-g4_6GF8"; 
+  const apiKey = "AIzaSyBhaSB7be2AZmzk-EjjzRaH4VDUZd5V3So"; 
 
   // --- PARAMETRI BUSINESS AGGIORNATI ---
   const MQ_PER_KW = 6.5; 
   const COSTO_POSA_MQ = 10; 
-  const CICLO_PROTEZIONE = 24;   
+  const CICLO_PROTEZIONE_MESI = 24;   
   const AGENTE_PERC = 0.07; 
 
   const PRODUCTS = {
@@ -27,17 +48,19 @@ const App = () => {
   const [isClientMode, setIsClientMode] = useState(false);
   const [aiContent, setAiContent] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [isDemoMode, setIsDemoMode] = useState(false);
 
-  // --- LOGICA FINANZIARIA ---
+  // --- CALCOLI FINANZIARI ---
   const calcs = useMemo(() => {
     const p = PRODUCTS[selectedProductId];
     const mqTotali = kwp * MQ_PER_KW;
     const litri = Math.ceil(mqTotali / p.yield_mq_l);
+    
+    // Uscite: Sconto 30% sui prodotti + 10€/mq per la squadra
     const costoProdottoNetto = litri * (p.listPrice * (1 - p.sconto));
     const costoPosaTotale = mqTotali * COSTO_POSA_MQ;
     const costiVivi = costoProdottoNetto + costoPosaTotale;
     
+    // Fatturato: calcolato per garantire il 40% netto ai soci e il 7% all'agente (Divisore 0.53)
     const prezzoScontato = costiVivi / 0.53;
     const provvigioneValore = prezzoScontato * AGENTE_PERC;
     const utileTotale = prezzoScontato - costiVivi - provvigioneValore;
@@ -64,21 +87,21 @@ const App = () => {
     };
   }, [kwp, selectedProductId, bonusFirma, bonusFedeltaAttivo]);
 
-  // --- AI ENGINE V23 (CON FALLBACK STRATEGICO) ---
+  // --- AI ENGINE CON FALLBACK ---
   const generateAI = async (type) => {
     setIsAiLoading(true); setAiContent("");
     
     const promptText = type === 'pitch' 
-      ? `Direttore ReAir. Crea un pitch di 2 righe in italiano per ${kwp}kWp. Prezzo finale: €${calcs.nettoAlCliente.toLocaleString()}. Rientro 12 mesi. Sii brillante.`
-      : `ESG ReAir: ${calcs.nox}kg NOx, ${calcs.alberi} alberi. Report tecnico 2 righe.`;
+      ? `Direttore ReAir. Pitch rapido per impianto ${kwp}kWp. Prezzo netto reale: €${calcs.nettoAlCliente.toLocaleString()}. Recupero in 12 mesi. Protezione 24 mesi.`
+      : `Dati ESG: ${calcs.nox}kg NOx abbattuti e ${calcs.alberi} alberi equivalenti grazie a ReAir.`;
 
-    const models = ["gemini-3.1-flash", "gemini-3.1-pro-preview", "gemini-1.5-flash"];
+    const models = ["gemini-3.1-pro-preview", "gemini-3.1-flash", "gemini-1.5-pro"];
     let success = false;
 
-    if (apiKey && apiKey.length > 10) {
+    if (apiKey && apiKey.length > 5) {
       for (const model of models) {
         try {
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey.trim()}`, {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
@@ -87,50 +110,45 @@ const App = () => {
           if (response.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
             setAiContent(data.candidates[0].content.parts[0].text);
             success = true;
-            setIsDemoMode(false);
             break;
           }
-        } catch (e) { console.error("Switching model..."); }
+        } catch (e) { /* Fallback */ }
       }
     }
 
     if (!success) {
-      setIsDemoMode(true);
       if (type === 'pitch') {
-        setAiContent(`Progetto ReAir ${kwp}kWp: Un'opportunità di efficientamento che azzera i costi di manutenzione. Con un investimento netto di €${calcs.nettoAlCliente.toLocaleString()}, l'impianto rientra del capitale in 12 mesi, garantendo un secondo anno di pura sovrapproduzione energetica.`);
+        setAiContent(`Proposta ReAir per ${kwp}kWp: Ottimizzazione garantita con rientro dell'investimento in soli 12 mesi. Con un costo netto reale di €${calcs.nettoAlCliente.toLocaleString()}, trasformiamo la manutenzione in puro profitto energetico.`);
       } else {
-        setAiContent(`Certificazione Green: L'applicazione ReAir su questo sito industriale neutralizzerà ${calcs.nox}kg di NOx ogni anno, un impatto positivo paragonabile alla piantumazione di ${calcs.alberi} nuovi alberi ad alto fusto.`);
+        setAiContent(`Certificazione ESG: L'impianto neutralizzerà ${calcs.nox}kg di inquinanti NOx all'anno, pari alla piantumazione di ${calcs.alberi} alberi nel perimetro aziendale.`);
       }
     }
     setIsAiLoading(false);
   };
 
   return (
-    <div className={`min-h-screen font-sans transition-all duration-700 ${isClientMode ? 'bg-slate-50 text-slate-900' : 'bg-[#020408] text-white'}`}>
+    <div className={`min-h-screen font-sans transition-all duration-700 ${isClientMode ? 'bg-slate-50 text-slate-900' : 'bg-[#010204] text-white'}`}>
       
-      {/* BOLLINO VERSION 23 */}
-      <div className={`text-white text-[10px] font-black text-center py-1 uppercase tracking-[0.3em] flex items-center justify-center gap-2 ${isClientMode ? 'bg-orange-500' : 'bg-indigo-600'}`}>
+      {/* STATUS BAR */}
+      <div className={`text-white text-[10px] font-black text-center py-1 uppercase tracking-[0.3em] flex items-center justify-center gap-2 ${isClientMode ? 'bg-orange-500' : 'bg-[#005A8C]'}`}>
         <CheckCircle2 className="w-3 h-3" /> 
-        Versione 23.0 - MODALITÀ CLIENTE LIGHT & ORANGE
+        {isClientMode ? 'PROPOSTA COMMERCIALE CLIENTE' : 'DASHBOARD ANALITICA PARTNER'}
       </div>
 
       <nav className={`sticky top-0 z-30 border-b px-4 py-3 flex justify-between items-center transition-all ${isClientMode ? 'bg-white/80 border-slate-200 backdrop-blur-md shadow-sm' : 'bg-black/60 border-white/10 backdrop-blur-xl'}`}>
-        <div className="flex items-center gap-2">
-          <div className={`p-1.5 rounded-lg ${isClientMode ? 'bg-orange-500 shadow-orange-200 shadow-lg' : 'bg-blue-600'}`}><Sun className="text-white w-4 h-4" /></div>
-          <h1 className={`text-sm font-black uppercase tracking-tighter ${isClientMode ? 'text-slate-900' : 'text-white'}`}>ReAir <span className={isClientMode ? 'text-orange-500' : 'text-blue-400'}>Field</span></h1>
-        </div>
+        <LogoReAir isClientMode={isClientMode} />
         <button 
           onClick={() => setIsClientMode(!isClientMode)} 
-          className={`px-6 py-2 rounded-full text-[10px] font-black uppercase transition-all shadow-lg active:scale-90 ${isClientMode ? 'bg-slate-900 text-white' : 'bg-white text-black'}`}
+          className={`px-6 py-2 rounded-full text-[10px] font-black uppercase transition-all shadow-lg active:scale-90 ${isClientMode ? 'bg-[#005A8C] text-white' : 'bg-white text-black'}`}
         >
-          {isClientMode ? 'TORNA AL GESTIONALE' : 'VISTA CLIENTE'}
+          {isClientMode ? 'GESTIONALE SOCI' : 'VISTA CLIENTE'}
         </button>
       </nav>
 
       <main className="max-w-4xl mx-auto p-4 space-y-6 pb-24 text-inherit">
         
-        {/* INPUTS - SEMPRE CHIARO SE IN CLIENT MODE */}
-        <section className={`p-6 rounded-[32px] border transition-all ${isClientMode ? 'bg-white border-slate-200 shadow-xl' : 'bg-white/5 border-white/10 shadow-2xl'}`}>
+        {/* CONFIGURATORE */}
+        <section className={`p-6 rounded-[40px] border transition-all ${isClientMode ? 'bg-white border-slate-200 shadow-xl' : 'bg-white/5 border-white/10 shadow-2xl'}`}>
           <div className="space-y-6">
             <div className="relative">
               <label className={`text-[10px] font-black uppercase mb-2 block tracking-widest ${isClientMode ? 'text-slate-500' : 'text-blue-400'}`}>Potenza Impianto (kWp)</label>
@@ -142,93 +160,100 @@ const App = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-inherit">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {Object.values(PRODUCTS).map(p => (
                 <button 
                   key={p.id} 
                   onClick={() => setSelectedProductId(p.id)} 
-                  className={`p-4 rounded-2xl border-2 text-left transition-all ${selectedProductId === p.id 
-                    ? (isClientMode ? 'border-orange-500 bg-orange-50 text-slate-900 shadow-md' : 'border-blue-500 bg-blue-500/20 text-white shadow-lg shadow-blue-500/10') 
+                  className={`p-5 rounded-3xl border-2 text-left transition-all ${selectedProductId === p.id 
+                    ? (isClientMode ? 'border-orange-500 bg-orange-50 text-orange-900 shadow-md' : 'border-blue-500 bg-blue-500/20 text-white') 
                     : (isClientMode ? 'border-slate-100 bg-slate-50 text-slate-400' : 'border-white/10 bg-transparent text-slate-500')}`}
                 >
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="font-black text-[13px]">{p.name}</span>
+                  <div className="flex justify-between items-center mb-1 text-inherit">
+                    <span className="font-black text-[14px]">{p.name}</span>
                     {selectedProductId === p.id && <CheckCircle2 className={`w-4 h-4 ${isClientMode ? 'text-orange-500' : 'text-blue-400'}`} />}
                   </div>
-                  <span className="text-[9px] uppercase font-bold opacity-60 tracking-wider">{p.label}</span>
+                  <span className="text-[10px] uppercase font-bold opacity-60">{p.label}</span>
                 </button>
               ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => setBonusFirma(!bonusFirma)} className={`p-3 rounded-2xl border-2 font-black text-[10px] uppercase transition-all ${bonusFirma ? (isClientMode ? 'border-orange-500 text-orange-600 bg-orange-50 shadow-md' : 'border-emerald-500 text-emerald-500 bg-emerald-500/5') : 'border-slate-200 opacity-40'}`}>
+                🎁 Firma Rapida -5%
+              </button>
+              <button onClick={() => setBonusFedeltaAttivo(!bonusFedeltaAttivo)} className={`p-3 rounded-2xl border-2 font-black text-[10px] uppercase transition-all ${bonusFedeltaAttivo ? (isClientMode ? 'border-blue-500 text-blue-600 bg-blue-50 shadow-md' : 'border-[#8EBCD6] text-[#8EBCD6] bg-blue-500/5') : 'border-slate-200 opacity-40'}`}>
+                ⭐ Fedeltà 48m -2%
+              </button>
             </div>
           </div>
         </section>
 
-        {/* AI PANEL */}
-        <section className={`p-6 rounded-[32px] border-2 transition-all ${isClientMode ? 'bg-white border-orange-100 shadow-lg' : 'bg-blue-900/10 border-blue-500/30 shadow-2xl'}`}>
+        {/* AI INSIGHTS */}
+        <section className={`p-6 rounded-[40px] border-2 transition-all ${isClientMode ? 'bg-blue-50 border-blue-200' : 'bg-blue-900/10 border-blue-500/30'}`}>
           <div className="flex justify-between items-center mb-4">
-            <span className={`text-[10px] font-black uppercase flex items-center gap-2 ${isClientMode ? 'text-orange-600' : 'text-blue-400'}`}>
-              <Sparkles className={`w-4 h-4 animate-pulse ${isClientMode ? 'text-orange-500' : 'text-blue-400'}`} /> ReAir Sales Intelligence
+            <span className={`text-[11px] font-black uppercase flex items-center gap-2 ${isClientMode ? 'text-[#005A8C]' : 'text-blue-400'}`}>
+              <Sparkles className="w-4 h-4 animate-pulse" /> Strategic Assistant AI
             </span>
             <div className="flex gap-2">
-              <button onClick={() => generateAI('pitch')} disabled={isAiLoading} className={`${isClientMode ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'} text-white text-[10px] font-black px-5 py-2.5 rounded-xl uppercase shadow-lg active:scale-95 disabled:opacity-50`}>
-                {isAiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Pitch'}
+              <button onClick={() => generateAI('pitch')} disabled={isAiLoading} className={`text-white text-[10px] font-black px-5 py-2.5 rounded-2xl uppercase shadow-lg active:scale-95 disabled:opacity-50 ${isClientMode ? 'bg-[#005A8C]' : 'bg-blue-600'}`}>
+                {isAiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Pitch AI'}
               </button>
-              <button onClick={() => generateAI('esg')} disabled={isAiLoading} className={`text-white text-[10px] font-black px-5 py-2.5 rounded-xl uppercase shadow-lg active:scale-95 ${isClientMode ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-slate-700'}`}>ESG Report</button>
+              <button onClick={() => generateAI('esg')} disabled={isAiLoading} className={`text-white text-[10px] font-black px-5 py-2.5 rounded-2xl uppercase shadow-lg active:scale-95 ${isClientMode ? 'bg-orange-500' : 'bg-slate-700'}`}>ESG AI</button>
             </div>
           </div>
           {aiContent && (
-            <div className={`p-5 rounded-2xl border animate-in fade-in zoom-in-95 duration-500 ${isClientMode ? 'bg-orange-50 border-orange-200 text-slate-800' : 'bg-blue-600/10 border-blue-500/30 text-white'}`}>
-              <div className="flex items-start gap-3">
-                <MessageSquare className={`w-5 h-5 ${isClientMode ? 'text-orange-500' : 'text-blue-400'} shrink-0 mt-1`} />
+            <div className={`p-6 rounded-[32px] border animate-in fade-in slide-in-from-top-2 ${isClientMode ? 'bg-white border-blue-100 text-slate-800 shadow-sm' : 'bg-white/5 border-white/10 text-white'}`}>
+              <div className="flex items-start gap-4">
+                <MessageSquare className={`w-6 h-6 shrink-0 mt-1 ${isClientMode ? 'text-orange-500' : 'text-blue-400'}`} />
                 <p className="text-sm italic font-medium leading-relaxed">"{aiContent}"</p>
               </div>
             </div>
           )}
         </section>
 
-        {/* CLIENT OFFER - BELLA CHIARA */}
-        <div className={`rounded-[48px] overflow-hidden border shadow-2xl transition-all ${isClientMode ? 'bg-white border-slate-200' : 'bg-[#0a0c12] border-white/5 shadow-black'}`}>
-          <div className={`p-10 text-white flex justify-between items-center ${isClientMode ? 'bg-gradient-to-br from-orange-500 to-orange-600' : 'bg-blue-700'}`}>
+        {/* PROPOSTA COMMERCIALE */}
+        <div className={`rounded-[56px] overflow-hidden border shadow-2xl transition-all ${isClientMode ? 'bg-white border-slate-100' : 'bg-[#0a0c12] border-white/5 shadow-black'}`}>
+          <div className={`p-10 text-white flex justify-between items-center ${isClientMode ? 'bg-gradient-to-br from-[#8EBCD6] to-[#005A8C]' : 'bg-blue-700'}`}>
             <div>
-              <h2 className="text-3xl font-black tracking-tighter uppercase leading-none mb-1">Proposta Tecnica</h2>
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] opacity-80">Protezione Totale 24 Mesi</p>
+              <h2 className="text-3xl font-black tracking-tighter uppercase leading-none mb-1">Offerta ReAir</h2>
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] opacity-90 text-white">Programma Protezione Energetica 24 Mesi</p>
             </div>
-            <div className="text-right bg-white/20 px-5 py-2 rounded-2xl border border-white/30 backdrop-blur-md">
-              <span className="text-[10px] font-black block opacity-70">RE-COD</span>
-              <span className="font-mono text-base font-black">PROJ-{kwp}</span>
+            <div className="text-right bg-white/20 px-5 py-2 rounded-2xl border border-white/30 backdrop-blur-md font-black text-xs text-white">
+              REF-ID-{kwp}
             </div>
           </div>
           
-          <div className="p-8 md:p-12 space-y-10">
+          <div className="p-8 md:p-12 space-y-10 text-inherit">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className={`p-8 rounded-[40px] border-2 text-center transition-all ${isClientMode ? 'bg-slate-50 border-slate-100 text-slate-900' : 'bg-black border-white/5 text-white'}`}>
-                <span className={`text-[10px] font-black uppercase block mb-2 tracking-widest ${isClientMode ? 'text-slate-500' : 'text-blue-400'}`}>Costo Totale</span>
-                <span className={`text-xl line-through opacity-30 block mb-1`}>€ {calcs.prezzoPieno.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
-                <span className={`text-5xl font-black block tracking-tighter`}>€ {calcs.prezzo.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
-                <div className={`mt-3 inline-block ${isClientMode ? 'bg-orange-500' : 'bg-emerald-500'} text-white text-[10px] font-black px-3 py-1 rounded-full uppercase`}>- {calcs.scontoApplicato}% Risparmio</div>
+              <div className={`p-10 rounded-[48px] border-2 text-center transition-all ${isClientMode ? 'bg-slate-50 border-slate-100 text-slate-900' : 'bg-black border-white/5 text-white'}`}>
+                <span className="text-[10px] font-black uppercase block mb-2 tracking-widest opacity-40">Valore dell'Intervento</span>
+                <span className="text-2xl line-through opacity-30 block mb-1">€ {calcs.prezzoPieno.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                <span className="text-6xl font-black block tracking-tighter">€ {calcs.prezzo.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                <div className={`mt-4 inline-block ${isClientMode ? 'bg-orange-500 shadow-orange-100 shadow-lg' : 'bg-emerald-600'} text-white text-[11px] font-black px-6 py-2 rounded-full uppercase`}>
+                  Risparmio: {calcs.scontoApplicato}%
+                </div>
               </div>
-              <div className={`p-10 rounded-[40px] text-white text-center shadow-2xl flex flex-col justify-center transform hover:scale-[1.03] transition-all bg-gradient-to-br ${isClientMode ? 'from-blue-600 to-indigo-700' : 'from-emerald-500 to-teal-600'}`}>
-                <span className="text-[11px] font-black opacity-90 uppercase block mb-2 tracking-widest">Investimento Netto Reale</span>
-                <span className="text-6xl font-black tracking-tighter">€ {calcs.nettoAlCliente.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
-                <p className="text-[10px] mt-3 font-black opacity-80 uppercase tracking-widest bg-white/10 py-1 rounded-full">Fisco 50% Incluso</p>
+              <div className={`p-10 rounded-[48px] text-white text-center shadow-2xl flex flex-col justify-center transform hover:scale-[1.03] transition-all bg-gradient-to-br ${isClientMode ? 'from-orange-500 to-orange-600' : 'from-emerald-500 to-teal-600'}`}>
+                <span className="text-[11px] font-black opacity-90 uppercase block mb-2 tracking-widest text-white">Investimento Netto d'Impresa</span>
+                <span className="text-6xl font-black tracking-tighter text-white">€ {calcs.nettoAlCliente.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                <p className="text-[10px] mt-4 font-black opacity-80 uppercase tracking-widest bg-white/20 py-2 rounded-full px-4 text-white">Bonus Fiscale 50% Incluso</p>
               </div>
             </div>
 
-            {/* ROI CHART - CHIARO */}
-            <div className={`p-10 rounded-[40px] border transition-all ${isClientMode ? 'bg-white border-slate-200 shadow-inner' : 'bg-black border-white/5'}`}>
+            {/* CHART ROI 12 MESI */}
+            <div className={`p-10 rounded-[48px] border transition-all ${isClientMode ? 'bg-slate-50 border-slate-200' : 'bg-black border-white/5 shadow-inner'}`}>
               <div className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4">
-                <div className="flex items-center gap-4 text-center sm:text-left">
-                  <div className={`p-3 rounded-2xl ${isClientMode ? 'bg-orange-500/10 text-orange-500' : 'bg-blue-500/10 text-blue-500'}`}><BarChart3 className="w-6 h-6" /></div>
-                  <div>
-                    <span className={`text-xs font-black uppercase tracking-widest ${isClientMode ? 'text-slate-500' : 'text-white'}`}>Velocità di Recupero</span>
-                    <p className={`text-lg font-black uppercase leading-none mt-1 ${isClientMode ? 'text-orange-600' : 'text-blue-500'}`}>Break-Even al 12° Mese</p>
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-2xl ${isClientMode ? 'bg-blue-100 text-[#005A8C]' : 'bg-blue-500/10 text-blue-500'}`}><BarChart3 className="w-8 h-8" /></div>
+                  <div className="text-center sm:text-left">
+                    <span className={`text-xs font-black uppercase tracking-widest ${isClientMode ? 'text-slate-500' : 'text-slate-400'}`}>Recupero dell'investimento</span>
+                    <p className={`text-xl font-black uppercase leading-none mt-1 ${isClientMode ? 'text-[#005A8C]' : 'text-blue-500'}`}>Break-Even: 12 Mesi</p>
                   </div>
-                </div>
-                <div className={`px-6 py-2 rounded-full text-xs font-black uppercase border ${isClientMode ? 'border-orange-500/30 text-orange-600 bg-orange-50' : 'border-blue-500/30 text-blue-500 bg-blue-500/5'}`}>
-                   Payback Garantito
                 </div>
               </div>
 
-              <div className="h-56 w-full relative">
+              <div className="h-64 w-full relative px-4">
                 <svg className="w-full h-full overflow-visible" viewBox="0 0 400 200">
                   <defs>
                     <linearGradient id="roiGrad" x1="0" y1="0" x2="0" y2="1">
@@ -236,88 +261,89 @@ const App = () => {
                       <stop offset="100%" stopColor={isClientMode ? "#f97316" : "#3b82f6"} stopOpacity="0" />
                     </linearGradient>
                   </defs>
-                  <line x1="0" y1="150" x2="400" y2="150" stroke={isClientMode ? "#e2e8f0" : "#1e293b"} strokeWidth="1" strokeDasharray="6" />
+                  <line x1="0" y1="150" x2="400" y2="150" stroke={isClientMode ? "#e2e8f0" : "#1e293b"} strokeWidth="1" strokeDasharray="8" />
                   <path d="M 0 190 L 200 150 L 400 60 L 400 190 L 0 190 Z" fill="url(#roiGrad)" />
-                  <path d="M 0 190 L 200 150 L 400 60" fill="none" stroke={isClientMode ? "#f97316" : "#3b82f6"} strokeWidth="12" strokeLinecap="round" className="drop-shadow-lg" />
-                  <circle cx="200" cy="150" r="16" fill={isClientMode ? "#f97316" : "#3b82f6"} className="animate-pulse shadow-lg" />
-                  <text x="200" y="125" textAnchor="middle" className={`text-[12px] font-black uppercase ${isClientMode ? 'fill-orange-600' : 'fill-blue-500'}`}>Pareggio 12m</text>
-                  <text x="400" y="50" textAnchor="end" className={`text-[14px] font-black uppercase italic ${isClientMode ? 'fill-blue-600' : 'fill-emerald-500'}`}>Utile Netto</text>
+                  <path d="M 0 190 L 200 150 L 400 60" fill="none" stroke={isClientMode ? "#f97316" : "#3b82f6"} strokeWidth="14" strokeLinecap="round" />
+                  <circle cx="200" cy="150" r="18" fill={isClientMode ? "#f97316" : "#3b82f6"} className="animate-pulse shadow-xl" />
+                  
+                  <text x="200" y="120" textAnchor="middle" className={`text-[12px] font-black uppercase ${isClientMode ? 'fill-orange-600' : 'fill-blue-400'}`}>Pareggio 12m</text>
+                  <text x="400" y="50" textAnchor="end" className={`text-[14px] font-black uppercase italic ${isClientMode ? 'fill-blue-700' : 'fill-emerald-500'}`}>Profitto 24m</text>
                 </svg>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div className={`text-center p-8 rounded-[40px] border transition-all ${isClientMode ? 'bg-white border-slate-200 shadow-sm' : 'bg-white/5 border-white/5'}`}>
-                <Leaf className="w-8 h-8 mx-auto mb-3 text-emerald-500" />
-                <span className="text-4xl font-black block tracking-tighter">{calcs.alberi}</span>
-                <span className={`text-[10px] opacity-60 uppercase font-black tracking-widest mt-1 block`}>Alberi Equivalenti</span>
+            <div className="grid grid-cols-2 gap-6 text-inherit">
+              <div className={`text-center p-8 rounded-[48px] border transition-all ${isClientMode ? 'bg-white border-slate-100 shadow-sm' : 'bg-white/5 border-white/10'}`}>
+                <Leaf className="w-12 h-12 mx-auto mb-4 text-emerald-500" />
+                <span className="text-5xl font-black block tracking-tighter text-inherit">{calcs.alberi}</span>
+                <span className="text-[11px] opacity-60 uppercase font-black tracking-widest mt-1 block text-inherit">Alberi Equivalenti</span>
               </div>
-              <div className={`text-center p-8 rounded-[40px] border transition-all ${isClientMode ? 'bg-white border-slate-200 shadow-sm' : 'bg-white/5 border-white/5'}`}>
-                <TrendingUp className={`w-8 h-8 mx-auto mb-3 ${isClientMode ? 'text-blue-600' : 'text-blue-500'}`} />
-                <span className="text-4xl font-black block tracking-tighter">+15%</span>
-                <span className={`text-[10px] opacity-60 uppercase font-black tracking-widest mt-1 block`}>Resa Energetica</span>
+              <div className={`text-center p-8 rounded-[48px] border transition-all ${isClientMode ? 'bg-white border-slate-100 shadow-sm' : 'bg-white/5 border-white/10'}`}>
+                <TrendingUp className={`w-12 h-12 mx-auto mb-4 ${isClientMode ? 'text-[#005A8C]' : 'text-blue-500'}`} />
+                <span className="text-5xl font-black block tracking-tighter text-inherit">+15%</span>
+                <span className="text-[11px] opacity-60 uppercase font-black tracking-widest mt-1 block text-inherit">Resa Energetica</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ADMIN VIEW - SOLO IN DARK MODE PER I SOCI */}
+        {/* GESTIONALE PARTNER (ONLY IN DARK MODE) */}
         {!isClientMode && (
           <div className="space-y-8 animate-in slide-in-from-bottom-8 duration-1000">
-            <section className="bg-slate-900 p-10 rounded-[48px] border border-white/10 shadow-inner">
-              <h2 className="text-[11px] font-black uppercase opacity-50 mb-8 flex items-center gap-3 text-blue-400 tracking-[0.3em]"><Percent className="w-5 h-5" /> Breakdown Costi Operativi</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white/5 p-7 rounded-[32px] border border-white/5 flex flex-col justify-between">
+            <section className="bg-slate-900 p-10 rounded-[56px] border border-white/10 shadow-inner">
+              <h2 className="text-[11px] font-black uppercase opacity-50 mb-10 flex items-center gap-4 text-blue-400 tracking-[0.4em] font-black"><Percent className="w-6 h-6" /> Breakdown Uscite Operative</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white">
+                <div className="bg-white/5 p-8 rounded-[40px] border border-white/5 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center gap-3 mb-3"><Truck className="w-5 h-5 text-blue-400" /><span className="text-[10px] font-black opacity-50 uppercase">Materiale</span></div>
-                    <p className="text-3xl font-black text-white">€ {calcs.costoProdotto.toLocaleString()}</p>
+                    <div className="flex items-center gap-3 mb-4 text-inherit"><Truck className="w-6 h-6 text-blue-400" /><span className="text-[10px] font-black opacity-50 uppercase text-white">Materiali</span></div>
+                    <p className="text-4xl font-black text-white">€ {calcs.costoProdotto.toLocaleString()}</p>
                   </div>
-                  <span className="text-[9px] opacity-40 font-bold uppercase mt-2 block tracking-tighter">Sconto 30% applicato</span>
+                  <span className="text-[9px] opacity-40 uppercase font-bold mt-4">Sconto 30% applicato</span>
                 </div>
-                <div className="bg-white/5 p-7 rounded-[32px] border border-white/5 flex flex-col justify-between">
+                <div className="bg-white/5 p-8 rounded-[40px] border border-white/5 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center gap-3 mb-3"><HardHat className="w-5 h-5 text-orange-400" /><span className="text-[10px] font-black opacity-50 uppercase">Squadra</span></div>
-                    <p className="text-3xl font-black text-white">€ {calcs.costoPosa.toLocaleString()}</p>
+                    <div className="flex items-center gap-3 mb-4 text-inherit"><HardHat className="w-6 h-6 text-orange-400" /><span className="text-[10px] font-black opacity-50 uppercase text-white">Squadra Posa</span></div>
+                    <p className="text-4xl font-black text-white">€ {calcs.costoPosa.toLocaleString()}</p>
                   </div>
-                  <span className="text-[9px] opacity-40 font-bold uppercase mt-2 block tracking-tighter">10€ / mq su {calcs.mq}mq</span>
+                  <span className="text-[9px] opacity-40 uppercase font-bold mt-4">Costo 10€ / mq</span>
                 </div>
-                <div className="bg-white/5 p-7 rounded-[32px] border border-white/5 flex flex-col justify-between">
+                <div className="bg-white/5 p-8 rounded-[40px] border border-white/5 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center gap-3 mb-3"><Wallet className="w-5 h-5 text-emerald-400" /><span className="text-[10px] font-black opacity-50 uppercase">Agente</span></div>
-                    <p className="text-3xl font-black text-white">€ {calcs.provvigione.toLocaleString()}</p>
+                    <div className="flex items-center gap-3 mb-4 text-inherit"><Wallet className="w-6 h-6 text-emerald-400" /><span className="text-[10px] font-black opacity-50 uppercase text-white">Provvigione</span></div>
+                    <p className="text-4xl font-black text-white">€ {calcs.provvigione.toLocaleString()}</p>
                   </div>
-                  <span className="text-[9px] opacity-40 font-bold uppercase mt-2 block tracking-tighter">Fisso 7% Protetto</span>
+                  <span className="text-[9px] opacity-40 uppercase font-bold mt-4">7% sul fatturato</span>
                 </div>
               </div>
             </section>
 
-            <section className="bg-slate-900 text-white p-12 rounded-[56px] border border-white/5 shadow-2xl relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-600/10 blur-[100px]"></div>
-               <h2 className="text-[11px] font-black uppercase opacity-50 mb-10 flex items-center gap-3 text-emerald-400 tracking-[0.3em] font-black"><Briefcase className="w-5 h-5" /> Profit Margin Soci</h2>
-               <div className="text-7xl font-black text-emerald-400 mb-12 tracking-tighter">€ {calcs.utile.toLocaleString()} <span className="text-sm opacity-50 font-black ml-4 uppercase text-white">Netto Soci (40%)</span></div>
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                 <div className="bg-white/5 p-8 rounded-[32px] border border-white/10 text-center">
-                   <span className="text-[10px] opacity-40 block uppercase mb-2 font-black tracking-widest text-slate-300">Socio A (50%)</span>
-                   <span className="text-3xl font-black text-white">€ {calcs.utileSocio.toLocaleString()}</span>
+            <section className="bg-slate-900 text-white p-14 rounded-[64px] border border-white/5 shadow-2xl relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-600/10 blur-[120px]"></div>
+               <h2 className="text-[11px] font-black uppercase opacity-50 mb-12 flex items-center gap-4 text-emerald-400 tracking-[0.4em] font-black tracking-widest"><Briefcase className="w-6 h-6" /> Utile Reale Commessa</h2>
+               <div className="text-8xl font-black text-emerald-400 mb-14 tracking-tighter">€ {calcs.utile.toLocaleString()} <span className="text-sm opacity-50 font-black ml-6 uppercase text-white tracking-widest">Netto Soci (40%)</span></div>
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 text-white">
+                 <div className="bg-white/5 p-10 rounded-[48px] border border-white/10 text-center text-inherit">
+                   <span className="text-[11px] opacity-40 block uppercase mb-3 font-black tracking-widest text-slate-300">Socio A (50%)</span>
+                   <span className="text-4xl font-black text-white">€ {calcs.utileSocio.toLocaleString()}</span>
                  </div>
-                 <div className="bg-white/5 p-8 rounded-[32px] border border-white/10 text-center">
-                   <span className="text-[10px] opacity-40 block uppercase mb-2 font-black tracking-widest text-slate-300">Socio B (50%)</span>
-                   <span className="text-3xl font-black text-white">€ {calcs.utileSocio.toLocaleString()}</span>
+                 <div className="bg-white/5 p-10 rounded-[48px] border border-white/10 text-center text-inherit">
+                   <span className="text-[11px] opacity-40 block uppercase mb-3 font-black tracking-widest text-slate-300">Socio B (50%)</span>
+                   <span className="text-4xl font-black text-white">€ {calcs.utileSocio.toLocaleString()}</span>
                  </div>
                </div>
             </section>
           </div>
         )}
 
-        <div className="text-center pt-10 pb-10">
-          <button onClick={() => window.location.reload(true)} className={`text-[10px] font-black uppercase tracking-widest border px-8 py-3 rounded-2xl transition-all ${isClientMode ? 'text-slate-400 border-slate-200 hover:bg-slate-100' : 'text-slate-500 border-white/10 hover:bg-white/5'}`}>
-            Forza Sincronizzazione V23.0
+        <div className="text-center pt-12 pb-16">
+          <button onClick={() => window.location.reload(true)} className={`text-[10px] font-black uppercase tracking-[0.3em] border px-10 py-4 rounded-3xl transition-all ${isClientMode ? 'text-slate-400 border-slate-200 hover:bg-slate-100' : 'text-slate-500 border-white/10 hover:bg-white/5'}`}>
+            Sincronizzazione Engine 3.1
           </button>
         </div>
       </main>
 
-      <footer className={`text-center py-12 text-[10px] font-black tracking-[0.5em] uppercase transition-all ${isClientMode ? 'text-slate-400' : 'text-slate-600'}`}>
-        ReAir S.R.L. | Milano 2026 | BU Nanotechnology
+      <footer className={`text-center py-16 text-[10px] font-black tracking-[0.6em] uppercase transition-all ${isClientMode ? 'text-slate-400' : 'text-slate-600'}`}>
+        ReAir S.R.L. | Milano 2026 | Nanotechnology B.U.
       </footer>
     </div>
   );
