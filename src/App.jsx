@@ -23,7 +23,7 @@ const LogoReAir = ({ isClientMode }) => (
       <span className={`text-2xl font-black tracking-tighter ${isClientMode ? 'text-[#005A8C]' : 'text-white'}`}>
         RE<span className="font-light italic">air</span>
       </span>
-      <span className={`text-[8px] font-bold uppercase tracking-[0.2em] ${isClientMode ? 'text-slate-500' : 'text-blue-300/60'}`}>
+      <span className={`text-[8px] font-bold uppercase tracking-[0.2em] ${isClientMode ? 'text-slate-400' : 'text-blue-300/60'}`}>
         air-health technology
       </span>
     </div>
@@ -37,7 +37,7 @@ const App = () => {
   const PRODUCTS_DATA = [
     { 
       id: 'rm20', name: 'Clean Coating RM 20', category: 'outdoor', yield: 40, price: 399, discount: 0.30, 
-      tech: 'Nanotecnologia TiO2 anatasio. Legame covalente silanico per superfici vetrate autopulenti.'
+      tech: 'Nanotecnologia TiO2 anatasio. Legame covalente silanico per superfici vetrate autopulenti e fotocatalisi estrema.'
     },
     { 
       id: 'pa_plus', name: 'PhotoActive Plus', category: 'outdoor', yield: 60, price: 195, discount: 0.30, 
@@ -45,15 +45,14 @@ const App = () => {
     },
     { 
       id: 'wall', name: 'ReAir Wall Indoor', category: 'indoor', yield: 50, price: 245, discount: 0.35, 
-      tech: 'Ioni d’argento + semiconduttori LED active. Efficacia sanificante certificata ISO 22196.'
+      tech: 'Ioni d’argento + semiconduttori LED active. Efficacia sanificante certificata ISO 22196 attiva H24.'
     },
     { 
       id: 'air', name: 'PhotoActive Air', category: 'indoor', yield: 45, price: 280, discount: 0.30, 
-      tech: 'Nanostruttura porosa per la decomposizione molecolare di inquinanti gassosi VOC e NOx.'
+      tech: 'Nanostruttura porosa avanzata per la decomposizione molecolare di inquinanti gassosi VOC e NOx indoor.'
     }
   ];
 
-  // --- STATI ---
   const [inputVal, setInputVal] = useState(300);
   const [customerName, setCustomerName] = useState("");
   const [isClientMode, setIsClientMode] = useState(false);
@@ -64,57 +63,77 @@ const App = () => {
   const [cycleMonths, setCycleMonths] = useState(24);
 
   const SCONTO_ANTICIPO_48M = 0.15; 
-  const MQ_PER_KW = 4.84; // Rapporto basato su pannelli 455Wp (~2.2mq cad)
+  
+  // --- PROPORZIONE REALE PANNELLI 455Wp ---
+  // Un pannello da 455Wp è lungo circa 211cm e largo 105cm = ~2.21 mq.
+  // 1 kWp = 2.19 pannelli -> Area = 2.19 * 2.21 = ~4.84 mq per kWp
+  const MQ_PER_KW = 4.84; 
 
   const toggleProduct = (id) => {
     setActiveProducts(prev => prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]);
   };
 
+  // Specchietto Tariffe Pulizia Pre-Trattamento (€/kWp)
+  // Tariffe ricalibrate per "punto di incontro"
   const getCleaningLaborRate = (val) => {
-    if (val <= 50) return 18;
-    if (val <= 100) return 15;
-    if (val <= 300) return 10;
-    return 8;
+    if (val <= 50) return 6;
+    if (val <= 100) return 5;
+    if (val <= 300) return 4;
+    return 3;
   };
 
-  // --- CALCOLI FINANZIARI ---
   const calcs = useMemo(() => {
     return PRODUCTS_DATA.map(p => {
       const mq = p.category === 'outdoor' ? inputVal * MQ_PER_KW : inputVal;
       const litriSingle = Math.ceil(mq / p.yield);
       const matCostSingle = litriSingle * (p.price * (1 - p.discount));
       
-      let labCostSingle = 0;
+      let cleaningCostSingle = 0;
       let cleaningRate = 0;
-      const applicationRate = 10; // 10€/mq fissi per applicazione
+      const applicationRate = 10; // 10€/mq fissi per applicazione nano
 
       if (p.category === 'outdoor') {
         cleaningRate = getCleaningLaborRate(inputVal);
-        labCostSingle = (inputVal * cleaningRate) + (mq * applicationRate);
-      } else {
-        labCostSingle = mq * applicationRate;
+        cleaningCostSingle = inputVal * cleaningRate;
       }
       
+      const applicationCostSingle = mq * applicationRate;
+      const labCostSingle = cleaningCostSingle + applicationCostSingle;
+      
       const multiplier = cycleMonths === 48 ? 2 : 1;
-      const finalPriceBase = (matCostSingle + labCostSingle) / 0.53; // Margine 40% + 7% Agente
-      let finalPrice = finalPriceBase * multiplier;
+      
+      // Costi Vivi (Materiali + Manodopera Totale)
+      const matCostTotal = matCostSingle * multiplier;
+      const labCostTotal = labCostSingle * multiplier;
+      const totalCostBase = matCostSingle + labCostSingle;
+
+      // Calcolo Prezzo Finale: garantisce 40% utile soci e 7% agente (Divisore 0.53)
+      const finalPriceSingle = totalCostBase / 0.53;
+      let finalPrice = finalPriceSingle * multiplier;
 
       if (cycleMonths === 48) finalPrice = finalPrice * (1 - SCONTO_ANTICIPO_48M);
       
+      const profit = finalPrice * 0.40;
+      const comm = finalPrice * 0.07;
+      const netPrice = finalPrice * 0.50; 
+      
       return {
-        ...p, mq, matCost: matCostSingle * multiplier, labCost: labCostSingle * multiplier, 
-        cleaningRate, applicationRate, finalPrice, netPrice: finalPrice * 0.50, 
-        profit: finalPrice * 0.40, comm: finalPrice * 0.07,
-        nox: (mq * 0.06 * multiplier).toFixed(1), trees: Math.round(mq * 0.06 * multiplier * 2.4)
+        ...p, mq, 
+        matCost: matCostTotal, 
+        labCost: labCostTotal, 
+        cleaningCost: cleaningCostSingle * multiplier,
+        applicationCost: applicationCostSingle * multiplier,
+        cleaningRate, applicationRate, finalPrice, netPrice, profit, comm,
+        nox: (mq * 0.06 * multiplier).toFixed(1), 
+        trees: Math.round(mq * 0.06 * multiplier * 2.4)
       };
     });
   }, [inputVal, cycleMonths]);
 
-  // --- AI ENGINE ---
   const generateAI = async (mode) => {
     setIsLoading(true); setAiResponse("");
     const selectedList = calcs.filter(p => activeProducts.includes(p.id));
-    const prompt = `Agisci come Direttore ReAir. Fornisci un ${mode} per: ${selectedList.map(p => p.name).join(", ")}. Cliente ${customerName || 'Azienda'}, Dimensione ${inputVal}, Protocollo ${cycleMonths} mesi. Includi sopralluogo tecnico al 12° mese. Niente 'garanzia'. Rispondi in Italiano.`;
+    const prompt = `Agisci come Direttore ReAir. Fornisci un ${mode} professionale. Nota tecnica: Proporzione pannelli 455Wp (~4.84mq/kWp). Costo applicazione: 10€/mq. Sopralluogo 12° mese incluso. Niente 'garanzia'.`;
 
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AI_MODEL_ID}:generateContent?key=${apiKey}`, {
@@ -125,7 +144,7 @@ const App = () => {
       const data = await response.json();
       setAiResponse(data.candidates?.[0]?.content?.parts?.[0]?.text || "Errore AI.");
     } catch (e) {
-      setAiResponse("Connessione API fallita. Verifica la chiave.");
+      setAiResponse("Errore connessione.");
     } finally {
       setIsLoading(false);
     }
@@ -134,45 +153,41 @@ const App = () => {
   return (
     <div className={`min-h-screen transition-all duration-700 overflow-x-hidden ${isClientMode ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'}`}>
       
-      {/* CSS AVANZATO PER PDF */}
       <style>{`
         @media print {
-          @page { size: A4; margin: 10mm; }
+          @page { size: A4; margin: 15mm; }
           nav, .no-print, button, footer { display: none !important; }
-          body { background: white !important; color: #0f172a !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; overflow: visible !important; }
+          body { background: white !important; color: #0f172a !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .print-container { padding: 0 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; }
           .quote-card { 
             display: flex !important; flex-direction: row !important; align-items: stretch !important; justify-content: space-between !important;
             gap: 25px !important; border: 2px solid #f1f5f9 !important; break-inside: avoid !important; page-break-inside: avoid !important;
-            margin-bottom: 25px !important; background: white !important; border-radius: 20px !important; padding: 25px !important; width: 100% !important;
+            margin-bottom: 30px !important; background: white !important; border-radius: 20px !important; padding: 25px !important; width: 100% !important;
           }
           .quote-card-main { flex: 1 !important; }
-          .quote-card-prices { width: 320px !important; flex-shrink: 0 !important; }
-          .print-header-top { display: flex !important; justify-content: space-between; align-items: center; border-bottom: 3px solid #005A8C !important; padding-bottom: 15px; margin-bottom: 25px; }
-          .client-box { border: 2px dashed #005A8C !important; background: #f8fafc !important; color: #0f172a !important; margin-bottom: 25px !important; }
+          .quote-card-prices { width: 340px !important; flex-shrink: 0 !important; }
+          .print-header-top { display: flex !important; justify-content: space-between; align-items: center; border-bottom: 3px solid #005A8C !important; padding-bottom: 15px; margin-bottom: 30px; }
+          .client-box { border: 2px dashed #005A8C !important; background: #f8fafc !important; color: #0f172a !important; margin-bottom: 30px !important; }
           .bg-[#005A8C] { background-color: #005A8C !important; color: white !important; }
+          .bg-emerald-600 { background-color: #059669 !important; color: white !important; }
           .text-[#005A8C] { color: #005A8C !important; }
           h3, h2 { color: #005A8C !important; }
         }
         .print-header-top { display: none; }
       `}</style>
 
-      {/* HEADER APP */}
-      <div className="no-print text-white text-[9px] font-black text-center py-1.5 uppercase tracking-[0.5em] flex items-center justify-center gap-2 bg-[#005A8C] border-b border-white/10">
-        <ShieldCheck className="w-3 h-3" /> ReAir Quote Engine V34.5 - Build Stable
+      <div className="no-print text-white text-[9px] font-black text-center py-1.5 uppercase tracking-[0.5em] flex items-center justify-center gap-2 bg-[#005A8C]">
+        <ShieldCheck className="w-3 h-3" /> ReAir Quote Engine V34.8 - Optimized Ratios
       </div>
 
-      <nav className={`no-print sticky top-0 z-50 border-b p-4 flex justify-between items-center transition-all ${isClientMode ? 'bg-white/95 border-slate-200 backdrop-blur-md shadow-sm' : 'bg-slate-950/90 border-white/10 backdrop-blur-xl'}`}>
+      <nav className={`no-print sticky top-0 z-50 border-b p-4 flex justify-between items-center transition-all ${isClientMode ? 'bg-white/90 border-slate-200 backdrop-blur-md shadow-sm' : 'bg-slate-950/80 border-white/10 backdrop-blur-xl'}`}>
         <LogoReAir isClientMode={isClientMode} />
-        <div className="flex gap-2 text-inherit">
-          <button onClick={() => window.print()} className="bg-emerald-600 text-white px-5 py-2.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2 shadow-lg hover:bg-emerald-700 transition-all">
+        <div className="flex gap-2">
+          <button onClick={() => window.print()} className="bg-emerald-600 text-white px-5 py-2.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2 shadow-lg hover:bg-emerald-700 transition-all active:scale-90">
             <Printer className="w-4 h-4" /> PDF PREVENTIVO
           </button>
-          <button 
-            onClick={() => setIsClientMode(!isClientMode)} 
-            className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase shadow-lg transition-all active:scale-95 border-2 ${isClientMode ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-900 border-white'}`}
-          >
-            {isClientMode ? 'GESTIONALE SOCI' : 'VISTA CLIENTE'}
+          <button onClick={() => setIsClientMode(!isClientMode)} className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase shadow-lg transition-all active:scale-95 border-2 ${isClientMode ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-900 border-white'}`}>
+            {isClientMode ? 'TORNA AL GESTIONALE' : 'VISTA CLIENTE'}
           </button>
         </div>
       </nav>
@@ -180,157 +195,164 @@ const App = () => {
       <main className="max-w-6xl mx-auto p-4 md:p-10 space-y-8 pb-32 print-container text-inherit">
         
         {/* PDF HEADER */}
-        <div className="print-header-top text-inherit">
+        <div className="print-header-top">
            <LogoReAir isClientMode={true} />
-           <div className="text-right text-inherit">
-             <h1 className="font-black text-2xl text-[#005A8C] uppercase m-0 tracking-tighter text-inherit">Proposta Tecnica ReAir</h1>
-             <p className="text-[11px] font-black text-slate-900 mt-1 text-inherit">Data: {new Date().toLocaleDateString('it-IT')}</p>
+           <div className="text-right">
+             <h1 className="font-black text-2xl text-[#005A8C] uppercase m-0 tracking-tighter">Proposta Tecnica ReAir</h1>
+             <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1 italic">Dipartimento Nanotecnologie 2026</p>
+             <p className="text-[11px] font-black text-slate-900 mt-1">Data: {new Date().toLocaleDateString('it-IT')}</p>
            </div>
         </div>
 
         {/* CONFIGURAZIONE (Admin Only) */}
         {!isClientMode && (
-          <section className="no-print p-8 rounded-[40px] border bg-slate-900 border-white/10 shadow-2xl space-y-10 text-white">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 text-inherit">
-              <div className="space-y-6 text-inherit">
-                <label className="text-[11px] font-black uppercase opacity-40 flex items-center gap-2 tracking-widest text-inherit">
-                  <UserPlus className="w-4 h-4 text-blue-400"/> Ragione Sociale Cliente
-                </label>
-                <input type="text" placeholder="Nome Azienda..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full bg-transparent border-b-2 border-white/10 py-2 text-xl font-black outline-none focus:border-blue-500 text-inherit" />
-                
-                <div className="pt-4 text-inherit">
-                  <span className="text-[11px] font-black uppercase opacity-40 block mb-4 tracking-widest text-inherit">Ciclo Protocollo:</span>
-                  <div className="flex gap-2 text-inherit">
-                    <button onClick={() => setCycleMonths(24)} className={`flex-1 p-3 rounded-xl border-2 font-black uppercase text-[9px] transition-all ${cycleMonths === 24 ? 'border-blue-500 bg-blue-500/20' : 'border-white/5 opacity-40'}`}>24 Mesi</button>
-                    <button onClick={() => setCycleMonths(48)} className={`flex-1 p-3 rounded-xl border-2 font-black uppercase text-[9px] transition-all ${cycleMonths === 48 ? 'border-orange-500 bg-orange-500/20' : 'border-white/5 opacity-40'}`}>48 Mesi (-15%)</button>
+          <section className="no-print p-8 rounded-[48px] border bg-slate-900 border-white/10 shadow-2xl space-y-12 text-white">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+              <div className="space-y-8">
+                <div>
+                  <label className="text-[11px] font-black uppercase opacity-40 flex items-center gap-2 tracking-widest mb-4">
+                    <UserPlus className="w-4 h-4 text-blue-400"/> Ragione Sociale Cliente
+                  </label>
+                  <input type="text" placeholder="Nome Azienda..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full bg-transparent border-b-2 border-white/10 py-3 text-2xl font-black outline-none focus:border-blue-500 transition-all text-white placeholder:opacity-20" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-black uppercase opacity-40 block mb-4 tracking-widest">Durata Protocollo:</span>
+                  <div className="flex gap-3">
+                    <button onClick={() => setCycleMonths(24)} className={`flex-1 py-4 rounded-2xl border-2 font-black uppercase text-[10px] transition-all ${cycleMonths === 24 ? 'border-blue-500 bg-blue-500/20 text-white' : 'border-white/5 opacity-40'}`}>24 Mesi</button>
+                    <button onClick={() => setCycleMonths(48)} className={`flex-1 py-4 rounded-2xl border-2 font-black uppercase text-[10px] transition-all ${cycleMonths === 48 ? 'border-orange-500 bg-orange-500/20 text-white' : 'border-white/5 opacity-40'}`}>48 Mesi (-15%)</button>
                   </div>
                 </div>
               </div>
 
-              <div className="text-inherit">
-                 <label className="text-[11px] font-black uppercase opacity-40 flex items-center gap-2 tracking-widest mb-4 text-inherit">
-                  <CheckSquare className="w-4 h-4 text-emerald-400"/> Selezione Prodotti
+              <div>
+                 <label className="text-[11px] font-black uppercase opacity-40 flex items-center gap-2 tracking-widest mb-5">
+                  <CheckSquare className="w-4 h-4 text-emerald-400"/> Tecnologie Selezionate
                 </label>
-                <div className="grid grid-cols-1 gap-2 text-inherit">
+                <div className="grid grid-cols-1 gap-2.5">
                   {PRODUCTS_DATA.map(p => (
-                    <button key={p.id} onClick={() => toggleProduct(p.id)} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${activeProducts.includes(p.id) ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-white/5 opacity-30 text-slate-500'}`}>
-                      <span className="text-[10px] font-black uppercase">{p.name}</span>
-                      {activeProducts.includes(p.id) ? <CheckCircle2 className="w-4 h-4 text-blue-500" /> : <Square className="w-4 h-4" />}
+                    <button key={p.id} onClick={() => toggleProduct(p.id)} className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${activeProducts.includes(p.id) ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-white/5 opacity-30 text-slate-500'}`}>
+                      <span className="text-[11px] font-black uppercase tracking-tight">{p.name}</span>
+                      {activeProducts.includes(p.id) ? <CheckCircle2 className="w-5 h-5 text-blue-500" /> : <Square className="w-5 h-5" />}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="text-inherit">
-                <label className="text-[11px] font-black uppercase opacity-40 block tracking-widest mb-4 text-inherit">Dimensione Progetto</label>
-                <div className="flex gap-2 mb-6 text-inherit">
-                  <button onClick={() => setSelectedCategory('outdoor')} className={`flex-1 p-3 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${selectedCategory === 'outdoor' ? 'border-blue-500 bg-blue-500/10 text-blue-500' : 'border-white/5 opacity-30 text-white'}`}>Outdoor (kWp)</button>
-                  <button onClick={() => setSelectedCategory('indoor')} className={`flex-1 p-3 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${selectedCategory === 'indoor' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500' : 'border-white/5 opacity-30 text-white'}`}>Indoor (mq)</button>
+              <div className="space-y-8">
+                <label className="text-[11px] font-black uppercase opacity-40 block tracking-widest mb-4">Dimensione Progetto</label>
+                <div className="flex gap-2">
+                  <button onClick={() => setSelectedCategory('outdoor')} className={`flex-1 py-3 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${selectedCategory === 'outdoor' ? 'border-blue-500 bg-blue-500/10 text-blue-500' : 'border-white/5 opacity-30'}`}>Outdoor (kWp)</button>
+                  <button onClick={() => setSelectedCategory('indoor')} className={`flex-1 py-3 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${selectedCategory === 'indoor' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500' : 'border-white/5 opacity-30'}`}>Indoor (mq)</button>
                 </div>
-                <input type="number" value={inputVal} onChange={(e) => setInputVal(Number(e.target.value))} className="w-full bg-transparent border-b-2 border-blue-500 py-2 text-5xl font-black outline-none text-inherit" />
+                <div className="pt-4">
+                  <input type="number" value={inputVal} onChange={(e) => setInputVal(Number(e.target.value))} className="w-full bg-transparent border-b-2 border-blue-500 py-2 text-6xl font-black outline-none text-white" />
+                  <p className="text-[9px] font-bold opacity-30 uppercase mt-4">Rapporto: 1 kWp (pannelli 455W) = ~{MQ_PER_KW} mq</p>
+                </div>
               </div>
             </div>
           </section>
         )}
 
         {/* BOX CLIENTE HEADER */}
-        <div className={`client-box p-8 rounded-[32px] border-2 border-dashed transition-all ${isClientMode ? 'border-slate-200 bg-slate-50 text-slate-900 shadow-sm' : 'border-white/10 bg-white/5 text-white'}`}>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 text-inherit">
-            <div className="flex-1 text-inherit">
-              <span className="text-[10px] font-black uppercase opacity-40 block tracking-[0.3em] mb-2 text-inherit">Documento predisposto per:</span>
-              <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter text-inherit leading-none">{customerName || "Gentile Cliente"}</h2>
+        <div className={`client-box p-10 rounded-[40px] border-2 border-dashed transition-all ${isClientMode ? 'border-slate-200 bg-slate-50 text-slate-900 shadow-sm' : 'border-white/10 bg-white/5 text-white'}`}>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+            <div className="flex-1">
+              <span className="text-[11px] font-black uppercase opacity-40 block tracking-[0.3em] mb-3 text-inherit">Documentazione predisposta per:</span>
+              <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter text-inherit leading-none">{customerName || "Gentile Cliente"}</h2>
             </div>
-            <div className="bg-[#005A8C] text-white px-8 py-4 rounded-2xl shadow-xl border border-white/20 text-center min-w-[200px]">
-              <span className="text-[9px] font-black uppercase opacity-60 block mb-1 tracking-widest text-white">Protocollo ReAir</span>
-              <p className="text-2xl md:text-3xl font-black text-white">{cycleMonths} MESI</p>
+            <div className="bg-[#005A8C] text-white px-10 py-6 rounded-[32px] shadow-2xl border border-white/20 text-center min-w-[220px]">
+              <span className="text-[10px] font-black uppercase opacity-60 block mb-1 tracking-widest text-white">Protocollo ReAir</span>
+              <p className="text-3xl md:text-4xl font-black text-white">{cycleMonths} MESI</p>
             </div>
           </div>
         </div>
 
-        {/* AI CONSOLE */}
-        <section className={`no-print p-8 rounded-[40px] border-2 transition-all shadow-2xl ${isClientMode ? 'bg-blue-50 border-blue-200 text-slate-900' : 'bg-blue-900/10 border-blue-500/30 text-white'}`}>
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8 text-inherit">
-            <div className="flex items-center gap-4 text-inherit">
-              <Sparkles className="w-6 h-6 text-blue-400 animate-pulse" />
-              <div className="text-[13px] font-black uppercase tracking-widest text-inherit">Strategia Gemini 3.1 Suite</div>
-            </div>
-            <div className="flex flex-wrap gap-2 text-inherit">
-              {['pitch', 'esg', 'tech'].map(m => (
-                <button key={m} onClick={() => generateAI(m)} disabled={isLoading} className="bg-[#005A8C] text-white text-[10px] font-black px-6 py-3 rounded-xl uppercase shadow-md active:scale-95 transition-all">
-                  {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : m}
-                </button>
-              ))}
-            </div>
-          </div>
-          {aiResponse && <div className="p-8 rounded-3xl bg-black/40 border border-white/5 text-base font-medium leading-relaxed italic text-blue-50 whitespace-pre-wrap text-inherit">{aiResponse}</div>}
-        </section>
-
         {/* SCHEDE PREVENTIVO */}
-        <div className="grid grid-cols-1 gap-10 text-inherit">
+        <div className="grid grid-cols-1 gap-12 text-inherit">
           {calcs.filter(p => activeProducts.includes(p.id)).map(p => (
-            <div key={p.id} className={`quote-card p-10 rounded-[48px] border transition-all shadow-2xl flex flex-col md:flex-row gap-12 items-start overflow-hidden relative ${isClientMode ? 'bg-white border-slate-100 text-slate-900 shadow-sm' : 'bg-white/5 border-white/10 text-white'}`}>
-              <div className="quote-card-main flex-1 space-y-6 text-inherit">
+            <div key={p.id} className={`quote-card p-12 rounded-[64px] border transition-all shadow-2xl flex flex-col md:flex-row gap-16 items-start overflow-hidden relative ${isClientMode ? 'bg-white border-slate-100 text-slate-900 shadow-sm' : 'bg-white/5 border-white/10 text-white'}`}>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#8EBCD6]/10 rounded-bl-full -z-10 opacity-50"></div>
+              
+              <div className="quote-card-main flex-1 space-y-8 text-inherit">
                 <div className="text-inherit">
-                  <h3 className={`text-3xl md:text-4xl font-black uppercase tracking-tighter ${isClientMode ? 'text-[#005A8C]' : 'text-blue-400'}`}>{p.name}</h3>
-                  <p className="text-[10px] font-bold opacity-50 uppercase tracking-[0.4em] mt-2 tracking-widest text-inherit">Maintenance Protocol 2026</p>
+                  <h3 className={`text-4xl md:text-5xl font-black uppercase tracking-tighter ${isClientMode ? 'text-[#005A8C]' : 'text-blue-400'}`}>{p.name}</h3>
+                  <p className="text-[10px] font-bold opacity-50 uppercase tracking-[0.5em] mt-3 tracking-widest text-inherit italic">Protocollo di Mantenimento Certificato 2026</p>
                 </div>
                 
-                <div className={`p-4 rounded-xl flex items-center gap-4 border transition-all ${isClientMode ? 'bg-blue-50 border-blue-200 text-[#005A8C]' : 'bg-blue-900/20 border-blue-500/30 text-blue-300'}`}>
-                  <SearchCheck className="w-7 h-7 shrink-0" />
+                <div className={`p-4 rounded-2xl flex items-center gap-4 border transition-all ${isClientMode ? 'bg-blue-50 border-blue-200 text-[#005A8C]' : 'bg-blue-900/20 border-blue-500/30 text-blue-300'}`}>
+                  <SearchCheck className="w-8 h-8 shrink-0" />
                   <div>
                     <p className="text-sm font-bold text-inherit leading-none">Sopralluogo Tecnico Incluso (12° Mese)</p>
-                    <p className="text-[10px] opacity-60 mt-1 text-inherit italic">Verifica molecolare e report di efficienza post-applicazione.</p>
+                    <p className="text-[10px] font-medium opacity-60 mt-1 text-inherit italic text-inherit">Verifica molecolare e report di efficienza post-applicazione.</p>
                   </div>
                 </div>
 
-                <p className="text-lg font-medium leading-relaxed opacity-80 text-inherit">{p.tech} Ciclo di richiamo periodico ogni 24 mesi per preservare l'efficacia certificata.</p>
+                <p className="text-lg md:text-xl font-medium leading-relaxed opacity-80 text-inherit">
+                  {p.tech} Il trattamento trasforma molecolarmente le superfici. Il protocollo prevede un intervento di mantenimento periodico ogni 24 mesi per preservare le prestazioni antibatteriche e fotocatalitiche ai massimi livelli di efficacia testata.
+                </p>
                 
-                <div className="flex flex-wrap gap-8 pt-4 text-inherit">
-                  <div className="flex items-center gap-3 text-emerald-600 font-black uppercase text-[11px]"><ShieldCheck className="w-5 h-5"/> Efficacia Certificata</div>
-                  <div className="flex items-center gap-3 text-blue-600 font-black uppercase text-[11px]"><TrendingUp className="w-5 h-5"/> Performance Asset</div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-4 pt-6 border-t border-current border-opacity-10 text-inherit">
-                   <div className="flex items-center gap-2 text-inherit"><Leaf className="w-5 h-5 text-emerald-500" /><span className="text-xs font-black uppercase text-inherit">{p.trees} Alberi Equivalenti</span></div>
-                   <div className="flex items-center gap-2 text-inherit"><Zap className="w-5 h-5 text-blue-500" /><span className="text-xs font-black uppercase text-inherit">Abbattimento NOx: {p.nox}kg</span></div>
+                   <div className="flex items-center gap-3 text-inherit">
+                     <Leaf className="w-6 h-6 text-emerald-500" />
+                     <span className="text-sm font-black uppercase tracking-tight text-inherit">{p.trees} Alberi Equivalenti</span>
+                   </div>
+                   <div className="flex items-center gap-3 text-inherit">
+                     <Zap className="w-6 h-6 text-blue-500" />
+                     <span className="text-sm font-black uppercase tracking-tight text-inherit">Abbattimento NOx: {p.nox}kg</span>
+                   </div>
                 </div>
               </div>
 
-              <div className="quote-card-prices w-full md:w-[380px] space-y-5 flex-shrink-0 text-inherit">
-                <div className={`p-6 rounded-2xl border text-center transition-all ${isClientMode ? 'bg-slate-50 border-slate-100' : 'bg-black/40 border-white/5'}`}>
-                   <span className="text-[10px] font-black uppercase opacity-40 block mb-2 tracking-[0.2em] text-inherit">Valore Protocollo ({cycleMonths} mesi)</span>
-                   <span className="text-4xl font-black text-inherit leading-none">€ {p.finalPrice.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+              <div className="quote-card-prices w-full md:w-[420px] space-y-6 flex-shrink-0 text-inherit">
+                <div className={`p-8 rounded-[36px] border text-center transition-all ${isClientMode ? 'bg-slate-50 border-slate-100 shadow-inner' : 'bg-black/40 border-white/5'}`}>
+                   <span className="text-[11px] font-black uppercase opacity-40 block mb-2 tracking-[0.3em] text-inherit">Valore Protocollo ({cycleMonths} mesi)</span>
+                   <span className="text-5xl font-black text-inherit leading-none">€ {p.finalPrice.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
                 </div>
-                <div className={`p-8 rounded-[32px] text-white shadow-2xl text-center transform bg-gradient-to-br ${p.category === 'outdoor' ? 'from-[#005A8C] to-[#003A6C]' : 'from-emerald-600 to-teal-800'}`}>
-                   <span className="text-[10px] font-black uppercase opacity-70 block mb-2 tracking-widest text-white/90">Investimento Netto Reale</span>
-                   <span className="text-5xl font-black text-white leading-none">€ {p.netPrice.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
-                   <p className="text-[10px] mt-4 font-bold opacity-80 uppercase tracking-widest text-white/80 border-t border-white/20 pt-4">Agevolazione Fiscale 50% Inclusa</p>
+                <div className={`p-10 rounded-[40px] text-white shadow-2xl text-center transform bg-gradient-to-br ${p.category === 'outdoor' ? 'from-[#005A8C] to-[#003A6C]' : 'from-emerald-600 to-teal-800'}`}>
+                   <span className="text-[11px] font-black uppercase opacity-70 block mb-2 tracking-widest text-white/90">Investimento Netto d'Impresa Reale</span>
+                   <span className="text-6xl font-black text-white leading-none">€ {p.netPrice.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                   <p className="text-[10px] mt-6 font-bold opacity-90 uppercase tracking-widest text-white/80 border-t border-white/20 pt-4">Agevolazione Fiscale 50% Inclusa</p>
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* DASHBOARD PARTNER */}
+        {/* DASHBOARD PARTNER - ANALISI COSTI */}
         {!isClientMode && (
-          <section className="no-print bg-slate-900 p-10 rounded-[56px] border border-white/10 shadow-2xl space-y-10 text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/10 blur-[150px] -z-10"></div>
-            <div className="flex justify-between items-center border-b border-white/5 pb-8 text-inherit">
-              <h2 className="text-[16px] font-black uppercase text-blue-400 tracking-[0.5em] flex items-center gap-5 text-inherit"><Calculator className="w-8 h-8" /> Business Analytics V34.5</h2>
-              <div className="text-right text-inherit"><span className="text-2xl font-black text-orange-400">7.0% Net Fee</span></div>
+          <section className="no-print bg-slate-900 p-12 rounded-[64px] border border-white/10 shadow-2xl space-y-12 text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 blur-[150px] -z-10"></div>
+            <div className="flex justify-between items-center border-b border-white/5 pb-12 text-inherit">
+              <h2 className="text-[18px] font-black uppercase text-blue-400 tracking-[0.5em] flex items-center gap-6 text-inherit"><Calculator className="w-10 h-10" /> Business Analytics V34.8</h2>
+              <div className="text-right text-inherit">
+                <span className="text-3xl font-black text-orange-400">7.0% Net Fee Agente</span>
+              </div>
             </div>
+            
             <div className="overflow-x-auto text-inherit">
-              <table className="w-full text-left text-[13px] text-inherit">
+              <table className="w-full text-left text-[14px] text-inherit">
                 <thead className="opacity-40 uppercase font-black text-white tracking-[0.3em] border-b border-white/5 text-inherit">
-                  <tr><th className="pb-8">Tecnologia</th><th className="pb-8">Materiali</th><th className="pb-8">Posa (Tot)</th><th className="pb-8 text-right">Utile (40%)</th></tr>
+                  <tr>
+                    <th className="pb-12 text-inherit">Tecnologia</th>
+                    <th className="pb-12 text-inherit">Materiali</th>
+                    <th className="pb-12 text-inherit text-center">Posa (Pulizia + Appl)</th>
+                    <th className="pb-12 text-inherit">Provvigione</th>
+                    <th className="pb-12 text-right text-inherit">Utile Soci (40%)</th>
+                  </tr>
                 </thead>
                 <tbody className="font-bold text-white text-inherit">
                   {calcs.map(p => (
-                    <tr key={p.id} className={`border-t border-white/5 transition-colors ${!activeProducts.includes(p.id) ? 'opacity-10' : ''}`}>
-                      <td className="py-8 text-blue-400 font-black text-xl text-inherit">{p.name}</td>
-                      <td className="py-8 text-inherit">€ {p.matCost.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
-                      <td className="py-8 text-inherit">€ {p.labCost.toLocaleString(undefined, {maximumFractionDigits:0})} <div className="text-[10px] opacity-30 text-inherit">{p.category === 'outdoor' ? `${p.cleaningRate}€/kW + 10€/mq` : '10€/mq'}</div></td>
-                      <td className="py-8 text-emerald-400 text-right text-3xl font-black text-inherit">€ {p.profit.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
+                    <tr key={p.id} className={`border-t border-white/5 group hover:bg-white/5 transition-colors ${!activeProducts.includes(p.id) ? 'opacity-10' : ''}`}>
+                      <td className="py-12 text-blue-400 font-black text-2xl tracking-tighter text-inherit">{p.name}</td>
+                      <td className="py-12 text-xl font-black text-inherit">€ {p.matCost.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
+                      <td className="py-12 text-xl font-black text-center text-inherit">
+                        € {p.labCost.toLocaleString(undefined, {maximumFractionDigits:0})}
+                        <div className="text-[9px] font-bold opacity-30 mt-2 uppercase text-inherit">
+                          {p.category === 'outdoor' ? `${p.cleaningRate}€/kW + 10€/mq (@ ~${p.mq.toFixed(0)}mq)` : '10€/mq'}
+                        </div>
+                      </td>
+                      <td className="py-12 text-orange-400 text-xl font-black text-inherit">€ {p.comm.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
+                      <td className="py-12 text-emerald-400 text-right text-4xl font-black tracking-tighter text-inherit">€ {p.profit.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -340,8 +362,8 @@ const App = () => {
         )}
       </main>
 
-      <footer className={`no-print text-center py-20 text-[10px] font-black opacity-30 uppercase tracking-[1em] border-t border-current border-opacity-5 ${isClientMode ? 'text-slate-400 border-slate-200' : 'text-slate-600 border-white/10'}`}>
-        ReAir S.R.L. | Nanotechnology Headquarters | Maintenance 2026
+      <footer className={`no-print text-center py-24 text-[11px] font-black opacity-30 uppercase tracking-[1em] border-t border-current border-opacity-5 ${isClientMode ? 'text-slate-400 border-slate-200' : 'text-slate-600 border-white/10'}`}>
+        ReAir S.R.L. | Milano HQ | Maintenance Protocol 2026
       </footer>
     </div>
   );
