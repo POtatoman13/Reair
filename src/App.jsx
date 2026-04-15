@@ -88,7 +88,12 @@ const App = () => {
       };
     });
   }, [inputVal]);
-
+  // Definizione dei modelli in ordine di priorità
+const MODELS = [
+  "gemini-3.1-flash",       // Il più veloce e aggiornato
+  "gemini-3.1-pro-preview", // Il più intelligente
+  "gemini-1.5-flash"        // Fallback stabile
+];
   const generateAI = async (mode) => {
     setIsLoading(true);
     setAiResponse("");
