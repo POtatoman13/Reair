@@ -2,55 +2,11 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <!-- Configurazione per il feeling da App nativa: impedisce lo zoom e il ridimensionamento -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>ReAir Field App</title>
-    
-    <!-- CONFIGURAZIONE ICONA MOBILE (Assicurati che logo.png sia nella cartella 'public') -->
-    <!-- Il parametro ?v=2 serve a forzare il refresh dell'immagine sul telefono -->
-    <link rel="apple-touch-icon" href="/logo.png?v=2">
-    <link rel="icon" type="image/png" href="/logo.png?v=2">
-    
-    <!-- Meta tag specifici per iOS (iPhone) -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="ReAir Field">
-
-    <!-- Meta tag specifici per Android -->
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#005A8C">
-
-    <!-- Tailwind CSS via CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <style>
-      /* Ottimizzazioni per Mobile */
-      body, html {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        width: 100%;
-        overflow-x: hidden;
-        /* Impedisce il "rimbalzo" della pagina su iOS */
-        position: fixed; 
-        -webkit-overflow-scrolling: touch;
-      }
-
-      #root {
-        height: 100%;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-      }
-
-      /* Rimuove l'evidenziazione blu al tocco sui bottoni in mobile */
-      * {
-        -webkit-tap-highlight-color: transparent;
-      }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ReAir Pro - Field App 2026</title>
   </head>
   <body>
     <div id="root"></div>
-    <!-- Punto di ingresso dell'applicazione React -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
