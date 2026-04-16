@@ -2,9 +2,9 @@
 import React from 'react';
 import { 
   ArrowLeft, Printer, LineChart, SearchCheck, 
-  Leaf, Zap, ShieldCheck, Calculator, Wind 
+  Leaf, Zap, ShieldCheck, Calculator 
 } from 'lucide-react';
-import { Logo } from './Logo';
+import { Logo } from './Logo.jsx';
 
 export const ClientView = ({ setView, customer, settings, setSettings, totals, activeProducts }) => {
   
@@ -139,7 +139,7 @@ export const ClientView = ({ setView, customer, settings, setSettings, totals, a
                   </div>
                 </div>
 
-                {/* BOX FINANZIARIO (DESIGN ARANCIO/BLU) */}
+                {/* BOX FINANZIARIO */}
                 <div className="w-full lg:w-[360px] shrink-0 space-y-6">
                    <div className="bg-white border-4 border-[#005A8C] p-8 rounded-[48px] shadow-2xl relative overflow-hidden text-center">
                      <div className="absolute top-0 right-0 p-4 opacity-5">
