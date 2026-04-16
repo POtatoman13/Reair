@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Mappatura colori ufficiali ReAir per uso professionale
+        // Colori ufficiali ReAir
         reair: {
           blue: "#005A8C",
           light: "#8EBCD6",
@@ -16,7 +16,6 @@ export default {
         }
       },
       fontFamily: {
-        // Utilizziamo un font sans-serif moderno e pulito
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
     },
