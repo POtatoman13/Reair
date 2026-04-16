@@ -4,12 +4,13 @@ import {
   Shield, Briefcase, CheckCircle2, HardHat, Truck, Percent,
   Wind, School, Building2, Beaker, UserPlus, FileText,
   Clock, Zap, ShieldCheck, CheckSquare, Square, ChevronDown, SearchCheck,
-  Users2, Landmark, Wallet, Layers
+  Users2, Landmark, Wallet, Layers, ArrowRight
 } from 'lucide-react';
 
 // --- CONFIGURAZIONE MODELLO AI ---
 const AI_MODEL_ID = "gemini-2.5-flash-preview-09-2025"; 
 
+// --- COMPONENTE LOGO REAIR ---
 const LogoReAir = ({ isClientMode }) => (
   <div className="flex items-center gap-3">
     <svg width="45" height="45" viewBox="0 0 100 100" fill="none">
@@ -54,7 +55,7 @@ const App = () => {
   ];
 
   // --- STATI ---
-  const [inputVal, setInputVal] = useState(100); // kWp per outdoor o mq per indoor
+  const [inputVal, setInputVal] = useState(100); 
   const [customerName, setCustomerName] = useState("");
   const [isClientMode, setIsClientMode] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('outdoor'); 
@@ -88,6 +89,7 @@ const App = () => {
       const cleaningRate = p.category === 'outdoor' ? getCleaningLaborRate(inputVal) : 0;
       const cleaningCostSingle = p.category === 'outdoor' ? inputVal * cleaningRate : 0;
       
+      // Se partner, costo applicazione assorbito (0). Se ReAir, +10€/mq. Indoor Partner sconta a 6.
       const applicationRate = laborType === 'reair' ? 10 : (p.category === 'outdoor' ? 0 : 6);
       const applicationCostSingle = mq * applicationRate;
       
@@ -95,19 +97,22 @@ const App = () => {
       const costiViviSingle = matCostSingle + posaTotaleSingle;
       
       const multiplier = cycleMonths === 48 ? 2 : 1;
-      let finalPrice = (costiViviSingle / 0.543) * multiplier; 
+      
+      // MARGINALITÀ 50% + 5% SEGNALATORE = Divisore 0.45
+      let finalPrice = (costiViviSingle / 0.45) * multiplier; 
+
       if (cycleMonths === 48) finalPrice = finalPrice * (1 - SCONTO_ANTICIPO_48M);
       
-      const margineLordo = finalPrice - (costiViviSingle * multiplier);
+      const margineLordoTotale = finalPrice - (costiViviSingle * multiplier);
       const provvSegnalatore = finalPrice * PROVVIGIONE_SEGNALATORE;
-      const nettoPartner = margineLordo - provvSegnalatore;
+      const nettoPartner = margineLordoTotale - provvSegnalatore;
       
       return {
         ...p, mq, litri: litriSingle * multiplier,
         matCost: matCostSingle * multiplier, 
         labCost: posaTotaleSingle * multiplier, 
         cleaningRate, applicationRate, 
-        finalPrice, margineLordo, provvSegnalatore, nettoPartner,
+        finalPrice, margineLordoTotale, provvSegnalatore, nettoPartner,
         netPrice: finalPrice * 0.50,
         nox: (mq * 0.06 * multiplier).toFixed(1), 
         trees: Math.round(mq * 0.06 * multiplier * 2.4)
@@ -116,47 +121,54 @@ const App = () => {
   }, [inputVal, cycleMonths, laborType, selectedCategory]);
 
   return (
-    <div className={`min-h-screen transition-all duration-700 ${isClientMode ? 'bg-white' : 'bg-slate-950 text-white'}`}>
+    <div className={`min-h-screen transition-all duration-700 overflow-x-hidden ${isClientMode ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'}`}>
       
-      {/* CSS OTTIMIZZATO PER "STAMPA / SALVA PDF" GOOGLE */}
+      {/* CSS OTTIMIZZATO PER "SALVA PDF" GOOGLE CON DESIGN ARANCIO/AZZURRO */}
       <style>{`
         @media print {
           @page { size: A4; margin: 15mm 12mm; }
           nav, .no-print, .config-panel, footer { display: none !important; }
-          body { background: white !important; color: #000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; overflow: visible !important; }
+          body { background: white !important; color: #0f172a !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; overflow: visible !important; }
           .print-container { width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; border: none !important; }
           
           .print-doc-header {
             display: flex !important;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 3px solid #005A8C;
-            padding-bottom: 8mm;
-            margin-bottom: 10mm;
+            justify-content: space-between !important;
+            align-items: center !important;
+            border-bottom: 4px solid #005A8C !important;
+            padding-bottom: 8mm !important;
+            margin-bottom: 12mm !important;
           }
 
           .quote-card {
             display: block !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-            border: none !important;
-            border-bottom: 1px solid #e2e8f0 !important;
+            border: 2px solid #f1f5f9 !important;
             margin-bottom: 12mm !important;
-            padding-bottom: 8mm !important;
+            padding: 25px !important;
+            border-radius: 20px !important;
+            background: #ffffff !important;
           }
 
-          .price-table-pdf {
-            width: 100% !important;
-            border-collapse: collapse !important;
-            margin-top: 5mm !important;
+          .price-summary-box {
+            background-color: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+            padding: 20px !important;
+            border-radius: 15px !important;
+            margin-top: 20px !important;
           }
-          .price-table-pdf td { padding: 10px !important; border: 1px solid #e2e8f0 !important; }
-          .price-table-pdf .label { background-color: #f8fafc !important; font-weight: 700 !important; font-size: 8pt !important; text-transform: uppercase; }
-          .price-table-pdf .value { text-align: right !important; font-weight: 800 !important; font-size: 13pt !important; }
-          .price-table-pdf .netto { background-color: #005A8C !important; color: white !important; }
-          
-          .esg-grid-print { display: flex !important; gap: 20px !important; margin-top: 10px !important; }
-          h3 { font-size: 22pt !important; color: #005A8C !important; font-weight: 900 !important; }
+
+          .net-box {
+            background-color: #f97316 !important;
+            color: white !important;
+            padding: 15px !important;
+            border-radius: 12px !important;
+            text-align: center !important;
+          }
+
+          h3 { font-size: 24pt !important; color: #005A8C !important; font-weight: 900 !important; margin-bottom: 5px !important; }
+          .highlight-blue { color: #005A8C !important; font-weight: 900 !important; }
         }
         .print-doc-header { display: none; }
       `}</style>
@@ -165,74 +177,67 @@ const App = () => {
       <nav className={`no-print sticky top-0 z-50 border-b p-4 flex justify-between items-center transition-all ${isClientMode ? 'bg-white/95 border-slate-200 backdrop-blur-md shadow-sm' : 'bg-slate-950/90 border-white/10 backdrop-blur-xl'}`}>
         <LogoReAir isClientMode={isClientMode} />
         <div className="flex gap-4 items-center">
-          <p className={`text-[10px] font-bold uppercase tracking-widest hidden md:block ${isClientMode ? 'text-slate-400' : 'text-blue-300'}`}>
-            Usa la funzione "Stampa" per il preventivo
-          </p>
           <button onClick={() => setIsClientMode(!isClientMode)} className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase shadow-lg transition-all active:scale-95 border-2 ${isClientMode ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-900 border-white'}`}>
-            {isClientMode ? 'TORNA AL GESTIONALE' : 'VISTA CLIENTE'}
+            {isClientMode ? 'GESTIONALE SOCI' : 'VISTA CLIENTE'}
           </button>
         </div>
       </nav>
 
       <main className="max-w-6xl mx-auto p-4 md:p-10 space-y-10 pb-32 print-container text-inherit">
         
-        {/* HEADER PDF */}
+        {/* PDF HEADER */}
         <div className="print-doc-header">
           <LogoReAir isClientMode={true} />
           <div className="text-right text-[#0f172a]">
-            <p className="font-black text-xl uppercase tracking-tighter">Proposta Tecnica ReAir</p>
-            <p className="text-sm font-bold opacity-60">Rif: RE-{inputVal}-2026</p>
-            <p className="text-sm font-bold opacity-60">Data: {new Date().toLocaleDateString('it-IT')}</p>
+            <p className="font-black text-xl uppercase tracking-tighter text-[#005A8C]">Proposta Tecnica ReAir</p>
+            <p className="text-xs font-bold opacity-60 italic">Data emissione: {new Date().toLocaleDateString('it-IT')}</p>
           </div>
         </div>
 
-        {/* PANNELLO CONFIGURAZIONE (Partner Only) */}
+        {/* PANNELLO CONFIGURAZIONE */}
         {!isClientMode && (
           <section className="no-print config-panel p-8 rounded-[40px] border bg-slate-900 border-white/10 shadow-2xl space-y-12 text-white">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-              {/* Colonna 1: Cliente e Squadra */}
               <div className="space-y-6">
                 <div>
-                  <label className="text-[11px] font-black uppercase opacity-40 flex items-center gap-2 tracking-widest text-inherit"><UserPlus className="w-4 h-4 text-blue-400"/> Nome Cliente</label>
-                  <input type="text" placeholder="Ragione sociale..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full bg-transparent border-b-2 border-white/10 py-2 text-xl font-black outline-none focus:border-blue-500" />
+                  <label className="text-[11px] font-black uppercase opacity-40 flex items-center gap-2 tracking-widest text-inherit"><UserPlus className="w-4 h-4 text-blue-400"/> Ragione Sociale Cliente</label>
+                  <input type="text" placeholder="Nome Azienda..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full bg-transparent border-b-2 border-white/10 py-2 text-xl font-black outline-none focus:border-blue-500 transition-all text-white" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-black uppercase opacity-40 block mb-4 tracking-widest">Squadra Applicativa:</span>
+                  <span className="text-[11px] font-black uppercase opacity-40 block mb-4 tracking-widest">Squadra Operativa:</span>
                   <div className="grid grid-cols-1 gap-2">
                     <button onClick={() => setLaborType('reair')} className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${laborType === 'reair' ? 'border-blue-500 bg-blue-500/20' : 'border-white/5 opacity-40'}`}>
-                      <div className="text-left"><span className="text-[10px] font-black block uppercase tracking-tighter">Team ReAir</span><span className="text-[9px] opacity-60">10€/mq Applicazione</span></div>
+                      <div className="text-left"><span className="text-[10px] font-black block uppercase text-inherit">Team ReAir</span><span className="text-[9px] opacity-60 text-inherit">+10€/mq Application</span></div>
                       <HardHat className={laborType === 'reair' ? 'text-blue-400' : 'text-white'} />
                     </button>
                     <button onClick={() => setLaborType('partner')} className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${laborType === 'partner' ? 'border-emerald-500 bg-emerald-500/20' : 'border-white/5 opacity-40'}`}>
-                      <div className="text-left"><span className="text-[10px] font-black block uppercase italic">Squadra Partner</span><span className="text-[9px] opacity-60">Costo ottimizzato</span></div>
+                      <div className="text-left"><span className="text-[10px] font-black block uppercase italic text-inherit">Partner Advantage</span><span className="text-[9px] opacity-60 text-inherit">Costo ottimizzato</span></div>
                       <Users2 className={laborType === 'partner' ? 'text-emerald-400' : 'text-white'} />
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Colonna 2: Dimensionamento */}
               <div className="space-y-6">
-                <label className="text-[11px] font-black uppercase opacity-40 block tracking-widest text-inherit">Parametri Progetto</label>
+                <label className="text-[11px] font-black uppercase opacity-40 block tracking-widest text-inherit">Dimensioni Intervento</label>
                 <div className="flex gap-2">
-                  <button onClick={() => {setSelectedCategory('outdoor'); setActiveProducts(['rm20', 'pa_plus']);}} className={`flex-1 py-3 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${selectedCategory === 'outdoor' ? 'border-blue-500 bg-blue-500/10' : 'border-white/5 opacity-30'}`}>Outdoor (kWp)</button>
-                  <button onClick={() => {setSelectedCategory('indoor'); setActiveProducts(['wall', 'air']);}} className={`flex-1 py-3 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${selectedCategory === 'indoor' ? 'border-emerald-500 bg-emerald-500/10' : 'border-white/5 opacity-30'}`}>Indoor (mq)</button>
+                  <button onClick={() => {setSelectedCategory('outdoor'); setActiveProducts(['rm20', 'pa_plus']);}} className={`flex-1 py-3 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${selectedCategory === 'outdoor' ? 'border-blue-500 bg-blue-500/10 text-blue-500' : 'border-white/5 opacity-30 text-white'}`}>Outdoor (kWp)</button>
+                  <button onClick={() => {setSelectedCategory('indoor'); setActiveProducts(['wall', 'air']);}} className={`flex-1 py-3 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${selectedCategory === 'indoor' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500' : 'border-white/5 opacity-30 text-white'}`}>Indoor (mq)</button>
                 </div>
                 <div className="pt-4">
                   <input type="number" value={inputVal} onChange={(e) => setInputVal(Number(e.target.value))} className="w-full bg-transparent border-b-2 border-blue-500 py-2 text-6xl font-black outline-none text-white" />
-                  <p className="text-[10px] font-bold opacity-30 uppercase mt-4">
-                    {selectedCategory === 'outdoor' ? `Calcolato su ~${inputVal * MQ_PER_KW}mq complessivi` : `Superficie pareti/soffitti totale`}
+                  <p className="text-[10px] font-bold opacity-30 uppercase mt-4 text-white">
+                    {selectedCategory === 'outdoor' ? `Proporzione reale: ~${inputVal * MQ_PER_KW}mq` : `Superficie pareti/soffitti`}
                   </p>
                 </div>
               </div>
 
-              {/* Colonna 3: Prodotti */}
               <div className="space-y-4">
-                <label className="text-[11px] font-black uppercase opacity-40 block tracking-widest text-inherit text-inherit">Selezione Catalogo</label>
+                <label className="text-[11px] font-black uppercase opacity-40 block tracking-widest text-inherit">Prodotti Attivi</label>
                 <div className="grid grid-cols-1 gap-2">
                   {PRODUCTS_DATA.filter(p => p.category === selectedCategory).map(p => (
-                    <button key={p.id} onClick={() => toggleProduct(p.id)} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${activeProducts.includes(p.id) ? 'border-blue-500 bg-blue-500/10' : 'border-white/5 opacity-30'}`}>
-                      <span className="text-[10px] font-black uppercase">{p.name}</span>
+                    <button key={p.id} onClick={() => toggleProduct(p.id)} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${activeProducts.includes(p.id) ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-white/5 opacity-30 text-slate-500'}`}>
+                      <span className="text-[10px] font-black uppercase text-inherit">{p.name}</span>
                       {activeProducts.includes(p.id) ? <CheckCircle2 className="w-4 h-4 text-blue-500" /> : <Square className="w-4 h-4" />}
                     </button>
                   ))}
@@ -247,68 +252,85 @@ const App = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
             <div className="flex-1">
               <span className="text-[11px] font-black uppercase opacity-40 block mb-2 tracking-[0.3em] text-inherit">Documentazione predisposta per:</span>
-              <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter text-[#005A8C] leading-none">{customerName || "Davide Salvadeo"}</h2>
+              <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter text-[#005A8C] leading-none italic">{customerName || "Davide Salvadeo"}</h2>
             </div>
-            <div className="bg-[#005A8C] text-white px-10 py-6 rounded-[24px] text-center min-w-[200px]">
-              <span className="text-[10px] font-black uppercase opacity-60 block mb-1">Durata del Protocollo</span>
+            <div className="bg-[#005A8C] text-white px-10 py-6 rounded-[24px] shadow-2xl border border-white/20 text-center min-w-[200px]">
+              <span className="text-[10px] font-black uppercase opacity-60 block mb-1">Ciclo del Protocollo</span>
               <p className="text-3xl md:text-4xl font-black">{cycleMonths} MESI</p>
             </div>
           </div>
         </div>
 
         {/* ELENCO PRODOTTI PREVENTIVO */}
-        <div className="space-y-20 text-inherit">
+        <div className="space-y-16 text-inherit">
           {calcs.filter(p => activeProducts.includes(p.id)).map((p) => (
-            <div key={p.id} className="quote-card text-inherit">
-              <div className="flex flex-col md:flex-row gap-12 items-start justify-between text-inherit">
+            <div key={p.id} className="quote-card group transition-all duration-500 hover:border-[#8EBCD6] border-2 border-slate-100 p-12 rounded-[64px] bg-white">
+              <div className="flex flex-col lg:flex-row gap-12 items-start justify-between text-inherit">
+                
+                {/* PARTE TECNICA */}
                 <div className="flex-1 text-inherit">
-                  <h3 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-[#005A8C] mb-2 text-inherit leading-none">{p.name}</h3>
-                  <p className="text-[11px] font-bold opacity-40 uppercase tracking-[0.4em] mb-8 text-inherit">Maintenance & Sustainability Protocol 2026</p>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="bg-[#005A8C] text-white px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest leading-none">Nanotecnologia Attiva</span>
+                    <span className="text-[#8EBCD6] font-black text-[10px] uppercase tracking-widest">{p.category} Business Unit</span>
+                  </div>
+                  <h3 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-[#005A8C] leading-none mb-6 italic">{p.name}</h3>
                   
-                  <div className="p-5 rounded-2xl flex items-center gap-5 border border-blue-100 bg-blue-50 text-[#005A8C] mb-8 no-print md:flex">
-                    <SearchCheck className="w-10 h-10 shrink-0" />
+                  <div className="p-6 rounded-2xl flex items-center gap-6 border border-blue-100 bg-blue-50/50 text-[#005A8C] mb-8 shadow-sm">
+                    <SearchCheck className="w-12 h-12 shrink-0 text-[#f97316]" />
                     <div className="text-inherit">
-                      <p className="text-sm font-black leading-none uppercase">Sopralluogo Tecnico Incluso (12° Mese)</p>
-                      <p className="text-[10px] font-medium opacity-70 mt-1 italic text-inherit">Verifica molecolare e report di efficienza certificato post-applicazione.</p>
+                      <p className="text-sm font-black leading-none uppercase tracking-tighter text-inherit">Sopralluogo Tecnico Annuo Incluso</p>
+                      <p className="text-[10px] font-medium opacity-70 mt-1 italic text-inherit">Verifica dell'efficacia molecolare al 12° mese con report tecnico certificato.</p>
                     </div>
                   </div>
 
-                  <p className="text-lg md:text-xl font-medium leading-relaxed text-slate-600 text-inherit text-justify">
-                    {p.tech} Il protocollo ReAir trasforma molecolarmente le superfici per preservare la pulizia e la resa dell'asset. Il ciclo prevede un richiamo periodico ogni 24 mesi per mantenere attiva l'efficacia fotocatalitica e microbiologica certificata.
+                  <p className="text-lg md:text-xl font-medium leading-relaxed text-slate-600 text-justify mb-8">
+                    {p.tech} Il protocollo ReAir trasforma molecolarmente le superfici preservando la resa energetica e riducendo drasticamente i costi di manutenzione ordinaria.
                   </p>
 
-                  <div className="esg-grid-print grid grid-cols-2 gap-8 py-8 border-t border-slate-100 mt-6 text-inherit no-print md:grid">
-                    <div className="flex items-center gap-4 text-emerald-600 font-black uppercase text-xs text-inherit">
-                      <Leaf className="w-8 h-8" /> {p.trees} Alberi Eq.
+                  <div className="grid grid-cols-2 gap-6 py-6 border-y border-slate-100 text-inherit">
+                    <div className="flex items-center gap-4 text-inherit">
+                      <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-inner text-inherit"><Leaf className="w-6 h-6" /></div>
+                      <div className="flex flex-col text-inherit"><span className="text-2xl font-black text-slate-900 leading-none text-inherit">{p.trees}</span><span className="text-[10px] font-black uppercase text-slate-400 text-inherit">Alberi Equivalenti</span></div>
                     </div>
-                    <div className="flex items-center gap-4 text-blue-600 font-black uppercase text-xs text-inherit">
-                      <Zap className="w-8 h-8" /> {p.nox}kg NOx Abbattuti
+                    <div className="flex items-center gap-4 text-inherit">
+                      <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shadow-inner text-inherit"><Wind className="w-6 h-6" /></div>
+                      <div className="flex flex-col text-inherit"><span className="text-2xl font-black text-slate-900 leading-none text-inherit">{p.nox}kg</span><span className="text-[10px] font-black uppercase text-slate-400 text-inherit">NOx Abbattuti</span></div>
                     </div>
                   </div>
                 </div>
 
-                {/* TABELLA PREZZI PDF (BLINDATA) */}
-                <div className="w-full md:w-[420px] shrink-0 text-inherit">
-                  <table className="price-table-pdf w-full text-inherit">
-                    <tbody className="text-inherit">
-                      <tr className="text-inherit">
-                        <td className="label text-inherit">Valore Intervento ({cycleMonths}m)</td>
-                        <td className="value text-[#005A8C] text-inherit font-black italic">€ {p.finalPrice.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
-                      </tr>
-                      <tr className="text-inherit">
-                        <td className="label text-inherit">Agevolazione Fiscale d'impresa</td>
-                        <td className="value text-emerald-600 text-inherit">- 50%</td>
-                      </tr>
-                      <tr className="text-inherit">
-                        <td className="label netto text-inherit text-white font-bold">Investimento Netto Reale</td>
-                        <td className="value netto text-white font-black text-2xl">€ {p.netPrice.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <div className="mt-6 p-4 bg-slate-50 border border-slate-200 rounded-xl no-print md:block">
-                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter leading-tight">
-                       *Il costo netto considera il recupero fiscale tramite credito d'imposta per efficientamento energetico o sanificazione.
-                     </p>
+                {/* PARTE ECONOMICA */}
+                <div className="w-full lg:w-[450px] shrink-0 text-inherit">
+                  <div className="bg-white rounded-[32px] border-4 border-[#005A8C] p-8 shadow-2xl relative overflow-hidden text-inherit">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 text-inherit"><TrendingUp className="w-24 h-24 text-[#005A8C]" /></div>
+                    
+                    <div className="space-y-6 text-inherit">
+                      <div className="text-center text-inherit">
+                        <span className="text-[11px] font-black uppercase opacity-40 block mb-1 tracking-widest text-slate-500 text-inherit">Valore del Protocollo ({cycleMonths}m)</span>
+                        <span className="text-4xl md:text-5xl font-black text-[#005A8C] italic leading-none text-inherit">€ {p.finalPrice.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                      </div>
+
+                      <div className="flex justify-between items-center bg-slate-50 p-5 rounded-2xl border border-slate-100 text-inherit">
+                        <span className="text-[10px] font-black text-slate-400 uppercase text-inherit">Agevolazione Fiscale 50%</span>
+                        <span className="text-xl font-black text-[#005A8C] text-inherit">- € {p.netPrice.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                      </div>
+
+                      <div className="bg-[#f97316] p-8 rounded-[24px] text-white shadow-xl text-center transform hover:scale-[1.02] transition-transform text-inherit">
+                        <span className="text-[12px] font-black uppercase opacity-80 block mb-2 tracking-widest text-white text-inherit">Investimento Netto d'Impresa Reale</span>
+                        <div className="flex items-center justify-center gap-2 text-inherit">
+                           <span className="text-6xl font-black leading-none text-white text-inherit">€ {p.netPrice.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                        </div>
+                        <p className="text-[10px] mt-4 font-bold opacity-90 uppercase tracking-widest border-t border-white/20 pt-4 text-white text-inherit">
+                           Recupero totale garantito in 14-16 mesi
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-6 flex items-center gap-3 px-4 text-inherit">
+                    <ShieldCheck className="w-5 h-5 text-emerald-500 text-inherit" />
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter leading-tight text-inherit">
+                      Proposta conforme ai parametri di efficientamento energetico e sanificazione ambientale 2026.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -318,30 +340,30 @@ const App = () => {
 
         {/* DASHBOARD PARTNER (SOLO SOCI) */}
         {!isClientMode && (
-          <section className="no-print bg-slate-900 p-12 rounded-[56px] border border-white/10 shadow-2xl space-y-10 text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/10 blur-[150px] -z-10"></div>
+          <section className="no-print bg-slate-900 p-12 rounded-[64px] border border-white/10 shadow-2xl space-y-10 text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 blur-[150px] -z-10 text-inherit text-inherit"></div>
             <div className="flex justify-between items-center border-b border-white/5 pb-8 text-inherit">
-              <h2 className="text-[18px] font-black uppercase text-blue-400 tracking-[0.5em] flex items-center gap-6 text-inherit"><Calculator className="w-10 h-10 text-inherit" /> Profit Summary V38.0</h2>
-              <div className="text-right text-inherit"><span className="text-3xl font-black text-orange-400 text-inherit">Margine Lordo 45.7%</span></div>
+              <h2 className="text-[18px] font-black uppercase text-blue-400 tracking-[0.5em] flex items-center gap-6 text-inherit"><Calculator className="w-10 h-10 text-inherit" /> Profit Analysis V39.5</h2>
+              <div className="text-right text-inherit"><span className="text-3xl font-black text-[#f97316] text-inherit">MARGINE 50% + 5% FEE</span></div>
             </div>
-            <div className="overflow-x-auto text-inherit">
-              <table className="w-full text-left text-[13px] text-inherit">
+            <div className="overflow-x-auto text-inherit text-inherit">
+              <table className="w-full text-left text-[14px] text-inherit">
                 <thead className="opacity-40 uppercase font-black text-white border-b border-white/5 text-inherit">
                   <tr>
-                    <th className="pb-8">Prodotto</th>
-                    <th className="pb-8">1. Incasso Cliente</th>
-                    <th className="pb-8 text-orange-200">2. Uscita Squadra</th>
-                    <th className="pb-8 text-blue-200">3. Uscita Prodotto</th>
-                    <th className="pb-8 text-right text-emerald-400">4. Netto Partner</th>
+                    <th className="pb-8 text-inherit">Prodotto</th>
+                    <th className="pb-8 text-inherit">1. Incasso Cliente</th>
+                    <th className="pb-8 text-orange-200 text-inherit">2. Costi Vivi</th>
+                    <th className="pb-8 text-blue-200 text-inherit">3. Provv. Segnalatore</th>
+                    <th className="pb-8 text-right text-emerald-400 text-inherit">4. Netto Partner</th>
                   </tr>
                 </thead>
                 <tbody className="font-bold text-white text-inherit">
                   {calcs.map(p => (
                     <tr key={p.id} className={`border-t border-white/5 transition-colors ${!activeProducts.includes(p.id) ? 'opacity-10' : ''} text-inherit`}>
-                      <td className="py-8 text-blue-400 font-black text-xl text-inherit">{p.name}</td>
-                      <td className="py-8 text-inherit">€ {p.finalPrice.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
-                      <td className="py-8 text-orange-200 text-inherit">€ {p.labCost.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
-                      <td className="py-8 text-blue-200 text-inherit">€ {p.matCost.toLocaleString(undefined, {maximumFractionDigits:0})} <div className="text-[9px] opacity-30 uppercase">{p.litri}L (~{p.mq.toFixed(0)}mq)</div></td>
+                      <td className="py-8 text-blue-400 font-black text-xl text-inherit text-inherit">{p.name}</td>
+                      <td className="py-8 text-inherit text-inherit">€ {p.finalPrice.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
+                      <td className="py-8 text-orange-200 text-inherit">€ {p.labCost.toLocaleString(undefined, {maximumFractionDigits:0})} <span className="opacity-40">Sq.</span></td>
+                      <td className="py-8 text-blue-200 text-inherit">€ {p.provvSegnalatore.toLocaleString(undefined, {maximumFractionDigits:0})} <span className="opacity-40">5%</span></td>
                       <td className="py-8 text-emerald-400 text-right text-3xl font-black text-inherit">€ {p.nettoPartner.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
                     </tr>
                   ))}
@@ -352,8 +374,8 @@ const App = () => {
         )}
       </main>
 
-      <footer className={`no-print text-center py-20 text-[10px] font-black opacity-30 uppercase tracking-[1em] border-t border-current border-opacity-5 ${isClientMode ? 'text-slate-400 border-slate-200' : 'text-slate-600 border-white/10'}`}>
-        ReAir S.R.L. | Milano HQ | Maintenance Protocol 2026
+      <footer className={`no-print text-center py-24 text-[10px] font-black opacity-30 uppercase tracking-[1em] border-t border-current border-opacity-5 ${isClientMode ? 'text-slate-400 border-slate-200' : 'text-slate-600 border-white/10'}`}>
+        ReAir S.R.L. | Milano Headquarters | Maintenance Protocol 2026
       </footer>
     </div>
   );
