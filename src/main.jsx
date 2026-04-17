@@ -1,12 +1,10 @@
-// src/main.jsx
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import './index.css'; // Importante per caricare Tailwind CSS
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
+import './index.css' // <-- È QUESTA LA MAGIA CHE MANCAVA!
 
-// Inizializza l'applicazione React nell'elemento 'root' del file index.html
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />
-  </React.StrictMode>
-);
+  </React.StrictMode>,
+)
