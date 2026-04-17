@@ -99,6 +99,7 @@ export default function App() {
           activeProducts={activeProducts} 
         />
       )}
+// Forza nuova build
     </div>
   );
 }
